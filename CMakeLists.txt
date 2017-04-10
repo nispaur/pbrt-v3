@@ -238,6 +238,7 @@ FILE ( GLOB PBRT_SOURCE
   src/cameras/*.cpp
   src/filters/*.cpp
   src/integrators/*.cpp
+  src/integrators/misc/*.cpp
   src/lights/*.cpp
   src/materials/*.cpp
   src/samplers/*.cpp
