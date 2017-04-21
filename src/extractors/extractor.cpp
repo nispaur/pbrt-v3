@@ -2,7 +2,9 @@
 // Created by nispaur on 4/21/17.
 //
 
+#include "filters/box.h"
 #include "scene.h"
+#include "paramset.h"
 #include "interaction.h"
 #include "extractors/extractor.h"
 #include "spectrum.h"
@@ -57,5 +59,38 @@ void AlbedoContainer::Init(const RayDifferential &r, int depth, const Scene &Sce
   this->depth = depth;
 }
 
+Extractor *CreateNormalExtractor(const ParamSet &params, const Film *imagefilm) {
+  std::string filename = params.FindOneString("outputfile", "");
+  if (filename == "") filename = "normal.exr";
+
+  return new Extractor(new NormalExtractor(), new Film(
+          imagefilm->fullResolution,
+          Bounds2f(Point2f(0, 0), Point2f(1, 1)),
+          std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())),
+          imagefilm->diagonal, filename, 1.f));
+}
+
+Extractor *CreateZExtractor(const ParamSet &params, const Film *imagefilm) {
+  std::string filename = params.FindOneString("outputfile", "");
+  if (filename == "") filename = "depth.exr";
+
+  return new Extractor(new ZExtractor(), new Film(
+          imagefilm->fullResolution,
+          Bounds2f(Point2f(0, 0), Point2f(1, 1)),
+          std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())),
+          imagefilm->diagonal, filename, 1.f));
+}
+
+
+Extractor *CreateAlbedoExtractor(const ParamSet &params, const Film *imagefilm) {
+  std::string filename = params.FindOneString("outputfile", "");
+  if (filename == "") filename = "albedo.exr";
+
+  return new Extractor(new AlbedoExtractor(), new Film(
+          imagefilm->fullResolution,
+          Bounds2f(Point2f(0, 0), Point2f(1, 1)),
+          std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())),
+          imagefilm->diagonal, filename, 1.f));
+}
 
 }

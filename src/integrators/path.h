@@ -51,6 +51,7 @@ class PathIntegrator : public SamplerIntegrator {
     // PathIntegrator Public Methods
     PathIntegrator(int maxDepth, std::shared_ptr<const Camera> camera,
                    std::shared_ptr<Sampler> sampler,
+                   std::shared_ptr<const Extractor> extractor,
                    const Bounds2i &pixelBounds, Float rrThreshold = 1,
                    const std::string &lightSampleStrategy = "spatial");
 
@@ -68,7 +69,9 @@ class PathIntegrator : public SamplerIntegrator {
 
 PathIntegrator *CreatePathIntegrator(const ParamSet &params,
                                      std::shared_ptr<Sampler> sampler,
-                                     std::shared_ptr<const Camera> camera);
+                                     std::shared_ptr<const Camera> camera,
+                                     std::shared_ptr<const Extractor> extractor
+);
 
 }  // namespace pbrt
 

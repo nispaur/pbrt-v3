@@ -123,6 +123,12 @@ class Extractor {
     Film *film;
 };
 
+// API Methods
+
+Extractor *CreateNormalExtractor(const ParamSet &params, const Film *imagefilm);
+Extractor *CreateZExtractor(const ParamSet &params, const Film *imagefilm);
+Extractor *CreateAlbedoExtractor(const ParamSet &params, const Film *imagefilm);
+
 }
 
 

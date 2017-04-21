@@ -156,6 +156,7 @@ struct RenderOptions {
     Integrator *MakeIntegrator() const;
     Scene *MakeScene();
     Camera *MakeCamera() const;
+    Extractor *MakeExtractor() const;
 
     // RenderOptions Public Data
     Float transformStartTime = 0, transformEndTime = 1;
@@ -172,6 +173,8 @@ struct RenderOptions {
     std::string CameraName = "perspective";
     ParamSet CameraParams;
     TransformSet CameraToWorld;
+    ParamSet ExtractorParams;
+    std::string ExtractorName = "normal";
     std::map<std::string, std::shared_ptr<Medium>> namedMedia;
     std::vector<std::shared_ptr<Light>> lights;
     std::vector<std::shared_ptr<Primitive>> primitives;
@@ -695,6 +698,28 @@ std::shared_ptr<Sampler> MakeSampler(const std::string &name,
     return std::shared_ptr<Sampler>(sampler);
 }
 
+std::shared_ptr<Extractor> MakeExtractor(const std::string &ExtractorName,
+                                                const ParamSet &ExtractorParams, const Film *imagefilm) {
+    Extractor *extractor = nullptr;
+
+    if (ExtractorName == "normal") {
+        extractor = CreateNormalExtractor(ExtractorParams, imagefilm);
+    }
+    else if (ExtractorName == "albedo") {
+        extractor = CreateAlbedoExtractor(ExtractorParams, imagefilm);
+    }
+    else if (ExtractorName == "depth") {
+        extractor = CreateZExtractor(ExtractorParams, imagefilm);
+    }
+    else {
+        Error("Extractor \"%s\" unknown", ExtractorName.c_str());
+        return nullptr;
+    }
+
+    ExtractorParams.ReportUnused();
+    return std::shared_ptr<Extractor>(extractor);
+}
+
 std::unique_ptr<Filter> MakeFilter(const std::string &name,
                                    const ParamSet &paramSet) {
     Filter *filter = nullptr;
@@ -945,6 +970,17 @@ void pbrtCamera(const std::string &name, const ParamSet &params) {
         params.Print(catIndentCount);
         printf("\n");
     }
+}
+
+void pbrtExtractor(const std::string &name, const ParamSet &params) {
+  VERIFY_OPTIONS("Extractor");
+  renderOptions->ExtractorName = name;
+  renderOptions->ExtractorParams = params;
+  if (PbrtOptions.cat || PbrtOptions.toPly) {
+    printf("%*sExtractor \"%s\" ", catIndentCount, "", name.c_str());
+    params.Print(catIndentCount);
+    printf("\n");
+  }
 }
 
 void pbrtMakeNamedMedium(const std::string &name, const ParamSet &params) {
@@ -1435,16 +1471,22 @@ Integrator *RenderOptions::MakeIntegrator() const {
         return nullptr;
     }
 
+    std::shared_ptr<const Extractor> extractor = pbrt::MakeExtractor(ExtractorName, ExtractorParams, camera->film);
+    if (!extractor) {
+      Error("Unable to create extractor");
+      return nullptr;
+    }
+
     Integrator *integrator = nullptr;
     if (IntegratorName == "whitted")
-        integrator = CreateWhittedIntegrator(IntegratorParams, sampler, camera);
+        integrator = CreateWhittedIntegrator(IntegratorParams, sampler, camera, extractor);
     else if (IntegratorName == "directlighting")
         integrator =
-            CreateDirectLightingIntegrator(IntegratorParams, sampler, camera);
+            CreateDirectLightingIntegrator(IntegratorParams, sampler, camera, extractor);
     else if (IntegratorName == "path")
-        integrator = CreatePathIntegrator(IntegratorParams, sampler, camera);
+        integrator = CreatePathIntegrator(IntegratorParams, sampler, camera, extractor);
     else if (IntegratorName == "volpath")
-        integrator = CreateVolPathIntegrator(IntegratorParams, sampler, camera);
+        integrator = CreateVolPathIntegrator(IntegratorParams, sampler, camera, extractor);
     else if (IntegratorName == "bdpt") {
         integrator = CreateBDPTIntegrator(IntegratorParams, sampler, camera);
     } else if (IntegratorName == "mlt") {
@@ -1485,5 +1527,12 @@ Camera *RenderOptions::MakeCamera() const {
                                   renderOptions->transformEndTime, film);
     return camera;
 }
+
+/*
+Extractor *RenderOptions::MakeExtractor() const {
+    Extractor *extractor = pbrt::MakeExtractor(ExtractorName, ExtractorParams, imagefilm);
+    return camera;
+}
+*/
 
 }  // namespace pbrt

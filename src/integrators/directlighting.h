@@ -55,8 +55,9 @@ class DirectLightingIntegrator : public SamplerIntegrator {
     DirectLightingIntegrator(LightStrategy strategy, int maxDepth,
                              std::shared_ptr<const Camera> camera,
                              std::shared_ptr<Sampler> sampler,
+                             std::shared_ptr<const Extractor> extractor,
                              const Bounds2i &pixelBounds)
-        : SamplerIntegrator(camera, sampler, pixelBounds),
+        : SamplerIntegrator(camera, sampler, extractor, pixelBounds),
           strategy(strategy),
           maxDepth(maxDepth) {}
     Spectrum Li(const RayDifferential &ray, const Scene &scene,
@@ -72,7 +73,7 @@ class DirectLightingIntegrator : public SamplerIntegrator {
 
 DirectLightingIntegrator *CreateDirectLightingIntegrator(
     const ParamSet &params, std::shared_ptr<Sampler> sampler,
-    std::shared_ptr<const Camera> camera);
+    std::shared_ptr<const Camera> camera, std::shared_ptr<const Extractor> extractor);
 
 }  // namespace pbrt
 
