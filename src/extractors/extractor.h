@@ -28,6 +28,15 @@ class Container {
     ~Container() {}
 };
 
+class DummyContainer : public Container {
+  public:
+    DummyContainer(Point2f pFilm) {};
+
+    void Init(const RayDifferential &r, int depth, const Scene &scene) {};
+    void ReportData(const SurfaceInteraction &isect) {};
+    Spectrum ToRGBSpectrum() const { return Spectrum(0.f); }
+};
+
 class NContainer : public Container {
   public:
     NContainer(Point2f pFilm) : p(pFilm) {};
@@ -79,6 +88,11 @@ class AlbedoContainer : public Container {
 class ExtractorFunc {
   public:
     virtual Container *GetNewContainer(Point2f p) const = 0;
+};
+
+class DummyExtractor : public ExtractorFunc {
+  public:
+    Container *GetNewContainer(Point2f p) { return new DummyContainer(p); }
 };
 
 class NormalExtractor : public ExtractorFunc {
