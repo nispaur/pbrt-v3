@@ -43,14 +43,17 @@ namespace pbrt {
 // WhittedIntegrator Method Definitions
 Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
-                               int depth) const {
+                               Container &container, int depth) const {
     Spectrum L(0.);
+    container.Init(ray,depth);
     // Find closest ray intersection or return background radiance
     SurfaceInteraction isect;
     if (!scene.Intersect(ray, &isect)) {
         for (const auto &light : scene.lights) L += light->Le(ray);
         return L;
     }
+
+    container.ReportData(isect);
 
     // Compute emitted and reflected light at ray intersection point
 
@@ -61,7 +64,7 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
     // Compute scattering functions for surface interaction
     isect.ComputeScatteringFunctions(ray, arena);
     if (!isect.bsdf)
-        return Li(isect.SpawnRay(ray.d), scene, sampler, arena, depth);
+        return Li(isect.SpawnRay(ray.d), scene, sampler, arena, container, depth);
 
     // Compute emitted light if ray hit an area light source
     L += isect.Le(wo);

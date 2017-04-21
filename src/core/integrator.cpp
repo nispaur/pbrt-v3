@@ -31,6 +31,7 @@
  */
 
 // core/integrator.cpp*
+#include <filters/box.h>
 #include "integrator.h"
 #include "scene.h"
 #include "interaction.h"
@@ -42,6 +43,9 @@
 #include "progressreporter.h"
 #include "camera.h"
 #include "stats.h"
+#include "extractors/extractor.h"
+#include "paramset.h"
+
 
 namespace pbrt {
 
@@ -229,6 +233,13 @@ void SamplerIntegrator::Render(const Scene &scene) {
     Preprocess(scene, *sampler);
     // Render image tiles in parallel
 
+    // TODO: API integration
+    Extractor extractor = Extractor(new NormalExtractor(), new Film(
+            camera->film->fullResolution,
+            Bounds2f(Point2f(0, 0), Point2f(1, 1)),
+            std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())),
+            camera->film->diagonal * 1000, "normal.exr", 1.f));
+
     // Compute number of tiles, _nTiles_, to use for parallel rendering
     Bounds2i sampleBounds = camera->film->GetSampleBounds();
     Vector2i sampleExtent = sampleBounds.Diagonal();
@@ -259,6 +270,10 @@ void SamplerIntegrator::Render(const Scene &scene) {
             std::unique_ptr<FilmTile> filmTile =
                 camera->film->GetFilmTile(tileBounds);
 
+            // Get _FilmTile_ for extractor
+            std::unique_ptr<FilmTile> extractorTile =
+                    extractor.film->GetFilmTile(tileBounds);
+
             // Loop over pixels in tile to render them
             for (Point2i pixel : tileBounds) {
                 {
@@ -286,9 +301,11 @@ void SamplerIntegrator::Render(const Scene &scene) {
                         1 / std::sqrt((Float)tileSampler->samplesPerPixel));
                     ++nCameraRays;
 
+                    Container *container = extractor.f->GetNewContainer(cameraSample.pFilm);
+
                     // Evaluate radiance along camera ray
                     Spectrum L(0.f);
-                    if (rayWeight > 0) L = Li(ray, scene, *tileSampler, arena);
+                    if (rayWeight > 0) L = Li(ray, scene, *tileSampler, arena, *container);
 
                     // Issue warning if unexpected radiance value returned
                     if (L.HasNaNs()) {
@@ -319,6 +336,9 @@ void SamplerIntegrator::Render(const Scene &scene) {
                     // Add camera ray's contribution to image
                     filmTile->AddSample(cameraSample.pFilm, L, rayWeight);
 
+                    // Add extractor contribution to extractor film
+                    extractorTile->AddSample(cameraSample.pFilm, container->ToRGBSpectrum(), rayWeight);
+
                     // Free _MemoryArena_ memory from computing image sample
                     // value
                     arena.Reset();
@@ -328,6 +348,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
 
             // Merge image tile into _Film_
             camera->film->MergeFilmTile(std::move(filmTile));
+            extractor.film->MergeFilmTile(std::move(extractorTile));
             reporter.Update();
         }, nTiles);
         reporter.Done();
@@ -336,6 +357,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
 
     // Save final image after rendering
     camera->film->WriteImage();
+    extractor.film->WriteImage();
 }
 
 Spectrum SamplerIntegrator::SpecularReflect(

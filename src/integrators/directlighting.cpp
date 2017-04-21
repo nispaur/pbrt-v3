@@ -61,8 +61,10 @@ void DirectLightingIntegrator::Preprocess(const Scene &scene,
 
 Spectrum DirectLightingIntegrator::Li(const RayDifferential &ray,
                                       const Scene &scene, Sampler &sampler,
-                                      MemoryArena &arena, int depth) const {
+                                      MemoryArena &arena, Container &container, int depth) const {
     ProfilePhase p(Prof::SamplerIntegratorLi);
+    container.Init(ray,depth);
+
     Spectrum L(0.f);
     // Find closest ray intersection or return background radiance
     SurfaceInteraction isect;
@@ -71,10 +73,13 @@ Spectrum DirectLightingIntegrator::Li(const RayDifferential &ray,
         return L;
     }
 
+    // Report intersection data
+    container.ReportData(isect);
+
     // Compute scattering functions for surface interaction
     isect.ComputeScatteringFunctions(ray, arena);
     if (!isect.bsdf)
-        return Li(isect.SpawnRay(ray.d), scene, sampler, arena, depth);
+        return Li(isect.SpawnRay(ray.d), scene, sampler, arena, container, depth);
     Vector3f wo = isect.wo;
     // Compute emitted light if ray hit an area light source
     L += isect.Le(wo);
