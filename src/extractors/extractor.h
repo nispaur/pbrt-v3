@@ -6,8 +6,8 @@
 #define PBRT_V3_EXTRACTOR_H
 
 
-#include <core/geometry.h>
-#include <core/film.h>
+#include "geometry.h"
+#include "film.h"
 #include "pbrt.h"
 
 namespace pbrt {
