@@ -70,12 +70,12 @@ Spectrum VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
     Float etaScale = 1;
 
     for (bounces = 0;; ++bounces) {
-        container.Init(ray, bounces);
+      container.Init(ray, bounces, scene);
         // Intersect _ray_ with scene and store intersection in _isect_
         SurfaceInteraction isect;
         bool foundIntersection = scene.Intersect(ray, &isect);
 
-        container.ReportData(isect);
+
         // Sample the participating medium, if present
         MediumInteraction mi;
         if (ray.medium) beta *= ray.medium->Sample(ray, sampler, arena, &mi);
@@ -115,6 +115,10 @@ Spectrum VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
 
             // Compute scattering functions and skip over medium boundaries
             isect.ComputeScatteringFunctions(ray, arena, true);
+
+            // Report intersection data to container
+            container.ReportData(isect);
+
             if (!isect.bsdf) {
                 ray = isect.SpawnRay(ray.d);
                 bounces--;

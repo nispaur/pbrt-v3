@@ -45,7 +45,7 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
                                Container &container, int depth) const {
     Spectrum L(0.);
-    container.Init(ray,depth);
+    container.Init(ray, depth, scene  );
     // Find closest ray intersection or return background radiance
     SurfaceInteraction isect;
     if (!scene.Intersect(ray, &isect)) {
@@ -53,7 +53,7 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
         return L;
     }
 
-    container.ReportData(isect);
+
 
     // Compute emitted and reflected light at ray intersection point
 
@@ -63,6 +63,10 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
 
     // Compute scattering functions for surface interaction
     isect.ComputeScatteringFunctions(ray, arena);
+
+    // Report intersection data to container
+    container.ReportData(isect);
+
     if (!isect.bsdf)
         return Li(isect.SpawnRay(ray.d), scene, sampler, arena, container, depth);
 

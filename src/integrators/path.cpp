@@ -79,7 +79,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
     Float etaScale = 1;
 
     for (bounces = 0;; ++bounces) {
-        container.Init(r, bounces);
+      container.Init(r, bounces, scene);
         // Find next path vertex and accumulate contribution
         VLOG(2) << "Path tracer bounce " << bounces << ", current L = " << L
                 << ", beta = " << beta;
@@ -88,9 +88,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
         SurfaceInteraction isect;
         bool foundIntersection = scene.Intersect(ray, &isect);
 
-        // Report intersection to container
-        if(foundIntersection)
-            container.ReportData(isect);
+
 
         // Possibly add emitted light at intersection
         if (bounces == 0 || specularBounce) {
@@ -110,6 +108,11 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
 
         // Compute scattering functions and skip over medium boundaries
         isect.ComputeScatteringFunctions(ray, arena, true);
+
+        // Report intersection to container
+        if(foundIntersection)
+          container.ReportData(isect);
+
         if (!isect.bsdf) {
             VLOG(2) << "Skipping intersection due to null bsdf";
             ray = isect.SpawnRay(ray.d);

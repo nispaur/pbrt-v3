@@ -6,6 +6,7 @@
 #define PBRT_V3_EXTRACTOR_H
 
 
+#include "reflection.h"
 #include "geometry.h"
 #include "film.h"
 #include "pbrt.h"
@@ -19,7 +20,7 @@ class Container {
   public:
     Container() {};
 
-    virtual void Init(const RayDifferential &r, int depth) =0;
+    virtual void Init(const RayDifferential &r, int depth, const Scene &scene) =0;
     virtual void ReportData(const SurfaceInteraction &isect) =0;
     virtual void ReportData(const RayDifferential &r) {};
     virtual Spectrum ToRGBSpectrum() const = 0;
@@ -31,7 +32,7 @@ class NContainer : public Container {
   public:
     NContainer(Point2f pFilm) : p(pFilm) {};
 
-    void Init(const RayDifferential &r, int depth);
+    void Init(const RayDifferential &r, int depth, const Scene &scene);
     void ReportData(const SurfaceInteraction &isect);
     Spectrum ToRGBSpectrum() const;
 
@@ -39,6 +40,37 @@ class NContainer : public Container {
     const Point2f p;
 
     Normal3f n;
+    int depth;
+};
+
+class ZContainer : public Container {
+  public:
+    ZContainer(Point2f pFilm) : p(pFilm) {};
+
+    void Init(const RayDifferential &r, int depth, const Scene &scene);
+    void ReportData(const SurfaceInteraction &isect);
+    Spectrum ToRGBSpectrum() const;
+
+  private:
+    const Point2f p;
+    Float zfar;
+    Float znear;
+    Float distance;
+    int depth;
+};
+
+
+class AlbedoContainer : public Container {
+  public:
+    AlbedoContainer(Point2f pFilm) : p(pFilm) {};
+
+    void Init(const RayDifferential &r, int depth, const Scene &Scene);
+    void ReportData(const SurfaceInteraction &isect);
+    Spectrum ToRGBSpectrum() const { return rho; }
+
+  private:
+    const Point2f p;
+    Spectrum rho;
     int depth;
 };
 
@@ -54,6 +86,19 @@ class NormalExtractor : public ExtractorFunc {
     Container *GetNewContainer(Point2f p) const;
 };
 
+class ZExtractor : public ExtractorFunc {
+  public:
+    Container *GetNewContainer(Point2f p) const {
+      return new ZContainer(p);
+    }
+};
+
+class AlbedoExtractor : public ExtractorFunc {
+  public:
+    Container *GetNewContainer(Point2f p) const {
+      return new AlbedoContainer(p);
+    }
+};
 
 // Extractor main class
 class Extractor {
