@@ -80,7 +80,7 @@ class SamplerIntegrator : public Integrator {
     // SamplerIntegrator Public Methods
     SamplerIntegrator(std::shared_ptr<const Camera> camera,
                       std::shared_ptr<Sampler> sampler,
-                      std::shared_ptr<const Extractor> extractor,
+                      std::shared_ptr<ExtractorManager> extractor,
                       const Bounds2i &pixelBounds)
         : camera(camera), sampler(sampler), extractor(extractor), pixelBounds(pixelBounds) {}
     virtual void Preprocess(const Scene &scene, Sampler &sampler) {}
@@ -90,7 +90,7 @@ class SamplerIntegrator : public Integrator {
                         int depth = 0) const {};
     virtual Spectrum Li(const RayDifferential &ray, const Scene &scene,
                         Sampler &sampler, MemoryArena &arena,
-                        Container &container, int depth = 0) const = 0;
+                        Containers &container, int depth = 0) const = 0;
     Spectrum SpecularReflect(const RayDifferential &ray,
                              const SurfaceInteraction &isect,
                              const Scene &scene, Sampler &sampler,
@@ -107,7 +107,7 @@ class SamplerIntegrator : public Integrator {
   private:
     // SamplerIntegrator Private Data
     std::shared_ptr<Sampler> sampler;
-    std::shared_ptr<const Extractor> extractor;
+    std::shared_ptr<ExtractorManager> extractor;
     const Bounds2i pixelBounds;
 };
 

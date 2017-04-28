@@ -263,9 +263,9 @@ void SamplerIntegrator::Render(const Scene &scene) {
             std::unique_ptr<FilmTile> filmTile =
                 camera->film->GetFilmTile(tileBounds);
 
-            // Get _FilmTile_ for extractor
-            std::unique_ptr<FilmTile> extractorTile =
-                    extractor->film->GetFilmTile(tileBounds);
+            // Get _FilmTile_ for extractors
+            std::unique_ptr<ExtractorTileManager> extractorTiles =
+                    extractor->GetNewExtractorTile(tileBounds);
 
             // Loop over pixels in tile to render them
             for (Point2i pixel : tileBounds) {
@@ -294,7 +294,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
                         1 / std::sqrt((Float)tileSampler->samplesPerPixel));
                     ++nCameraRays;
 
-                    Container *container = extractor->f->GetNewContainer(cameraSample.pFilm);
+                    std::unique_ptr<Containers> container = extractor->GetNewContainer(cameraSample.pFilm);
 
                     // Evaluate radiance along camera ray
                     Spectrum L(0.f);
@@ -330,7 +330,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
                     filmTile->AddSample(cameraSample.pFilm, L, rayWeight);
 
                     // Add extractor contribution to extractor film
-                    extractorTile->AddSample(cameraSample.pFilm, container->ToRGBSpectrum(), rayWeight);
+                    extractorTiles->AddSamples(cameraSample.pFilm, std::move(container), rayWeight);
 
                     // Free _MemoryArena_ memory from computing image sample
                     // value
@@ -341,7 +341,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
 
             // Merge image tile into _Film_
             camera->film->MergeFilmTile(std::move(filmTile));
-            extractor->film->MergeFilmTile(std::move(extractorTile));
+            extractor->MergeTiles(std::move(extractorTiles));
             reporter.Update();
         }, nTiles);
         reporter.Done();
@@ -350,7 +350,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
 
     // Save final image after rendering
     camera->film->WriteImage();
-    extractor->film->WriteImage();
+    extractor->WriteOutput();
 }
 
 Spectrum SamplerIntegrator::SpecularReflect(

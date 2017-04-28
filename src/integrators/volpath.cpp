@@ -54,7 +54,7 @@ void VolPathIntegrator::Preprocess(const Scene &scene, Sampler &sampler) {
 
 Spectrum VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
-                               Container &container, int depth) const {
+                               Containers &container, int depth) const {
     ProfilePhase p(Prof::SamplerIntegratorLi);
     Spectrum L(0.f), beta(1.f);
     RayDifferential ray(r);
@@ -196,7 +196,7 @@ Spectrum VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
 VolPathIntegrator *CreateVolPathIntegrator(
     const ParamSet &params, std::shared_ptr<Sampler> sampler,
     std::shared_ptr<const Camera> camera,
-    std::shared_ptr<const Extractor> extractor) {
+    std::shared_ptr<ExtractorManager> extractor) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
     int np;
     const int *pb = params.FindInt("pixelbounds", &np);

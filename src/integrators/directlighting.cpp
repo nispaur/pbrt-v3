@@ -61,7 +61,7 @@ void DirectLightingIntegrator::Preprocess(const Scene &scene,
 
 Spectrum DirectLightingIntegrator::Li(const RayDifferential &ray,
                                       const Scene &scene, Sampler &sampler,
-                                      MemoryArena &arena, Container &container, int depth) const {
+                                      MemoryArena &arena, Containers &container, int depth) const {
     ProfilePhase p(Prof::SamplerIntegratorLi);
   container.Init(ray, depth, scene);
 
@@ -105,7 +105,7 @@ Spectrum DirectLightingIntegrator::Li(const RayDifferential &ray,
 
 DirectLightingIntegrator *CreateDirectLightingIntegrator(
     const ParamSet &params, std::shared_ptr<Sampler> sampler,
-    std::shared_ptr<const Camera> camera, std::shared_ptr<const Extractor> extractor) {
+    std::shared_ptr<const Camera> camera, std::shared_ptr<ExtractorManager> extractor) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
     LightStrategy strategy;
     std::string st = params.FindOneString("strategy", "all");

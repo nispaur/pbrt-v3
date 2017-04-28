@@ -181,6 +181,8 @@ enum class Prof {
     GetSample,
     TexFiltTrilerp,
     TexFiltEWA,
+    ExtractorInit,
+    ExtractorReport,
     NumProfCategories
 };
 
@@ -235,6 +237,8 @@ static const char *ProfNames[] = {
     "Sampler::GetSample[12]D()",
     "MIPMap::Lookup() (trilinear)",
     "MIPMap::Lookup() (EWA)",
+    "Extractor::Init()",
+    "Extractor::ReportValue()",
 };
 
 static_assert((int)Prof::NumProfCategories ==

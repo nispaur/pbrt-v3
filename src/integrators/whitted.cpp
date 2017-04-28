@@ -43,7 +43,7 @@ namespace pbrt {
 // WhittedIntegrator Method Definitions
 Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
-                               Container &container, int depth) const {
+                               Containers &container, int depth) const {
     Spectrum L(0.);
     container.Init(ray, depth, scene  );
     // Find closest ray intersection or return background radiance
@@ -95,7 +95,7 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
 
 WhittedIntegrator *CreateWhittedIntegrator(
     const ParamSet &params, std::shared_ptr<Sampler> sampler,
-    std::shared_ptr<const Camera> camera, std::shared_ptr<const Extractor> extractor) {
+    std::shared_ptr<const Camera> camera, std::shared_ptr<ExtractorManager> extractor) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
     int np;
     const int *pb = params.FindInt("pixelbounds", &np);

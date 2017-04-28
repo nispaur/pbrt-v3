@@ -49,7 +49,7 @@ STAT_INT_DISTRIBUTION("Integrator/Path length", pathLength);
 PathIntegrator::PathIntegrator(int maxDepth,
                                std::shared_ptr<const Camera> camera,
                                std::shared_ptr<Sampler> sampler,
-                               std::shared_ptr<const Extractor> extractor,
+                               std::shared_ptr<ExtractorManager> extractor,
                                const Bounds2i &pixelBounds, Float rrThreshold,
                                const std::string &lightSampleStrategy)
     : SamplerIntegrator(camera, sampler, extractor, pixelBounds),
@@ -64,7 +64,7 @@ void PathIntegrator::Preprocess(const Scene &scene, Sampler &sampler) {
 
 Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
                             Sampler &sampler, MemoryArena &arena,
-                            Container &container, int depth) const {
+                            Containers &container, int depth) const {
     ProfilePhase p(Prof::SamplerIntegratorLi);
     Spectrum L(0.f), beta(1.f);
     RayDifferential ray(r);
@@ -199,7 +199,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
 PathIntegrator *CreatePathIntegrator(const ParamSet &params,
                                      std::shared_ptr<Sampler> sampler,
                                      std::shared_ptr<const Camera> camera,
-                                     std::shared_ptr<const Extractor> extractor) {
+                                     std::shared_ptr<ExtractorManager> extractor) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
     int np;
     const int *pb = params.FindInt("pixelbounds", &np);
