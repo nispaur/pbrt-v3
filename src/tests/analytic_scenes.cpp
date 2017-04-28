@@ -6,6 +6,7 @@
 #include "api.h"
 #include "cameras/orthographic.h"
 #include "cameras/perspective.h"
+#include "extractors/extractor.h"
 #include "film.h"
 #include "filters/box.h"
 #include "geometry.h"
@@ -282,8 +283,10 @@ std::vector<TestIntegrator> GetIntegrators() {
                     identity, Bounds2f(Point2f(-1, -1), Point2f(1, 1)), 0., 1.,
                     0., 10., 45, film, nullptr);
 
+            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
+
             Integrator *integrator =
-                new PathIntegrator(8, camera, sampler.first,
+                new PathIntegrator(8, camera, sampler.first, extractor,
                                    film->croppedPixelBounds);
             integrators.push_back({integrator, film,
                                    "Path, depth 8, Perspective, " +
@@ -301,9 +304,10 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<OrthographicCamera>(
                     identity, Bounds2f(Point2f(-.1, -.1), Point2f(.1, .1)), 0.,
                     1., 0., 10., film, nullptr);
+            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
 
             Integrator *integrator =
-                new PathIntegrator(8, camera, sampler.first,
+                new PathIntegrator(8, camera, sampler.first, extractor,
                                    film->croppedPixelBounds);
             integrators.push_back({integrator, film,
                                    "Path, depth 8, Ortho, " + sampler.second +
@@ -321,9 +325,11 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<PerspectiveCamera>(
                     identity, Bounds2f(Point2f(-1, -1), Point2f(1, 1)), 0., 1.,
                     0., 10., 45, film, nullptr);
+            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
+
 
             Integrator *integrator =
-                new VolPathIntegrator(8, camera, sampler.first,
+                new VolPathIntegrator(8, camera, sampler.first, extractor,
                                       film->croppedPixelBounds);
             integrators.push_back({integrator, film,
                                    "VolPath, depth 8, Perspective, " +
@@ -340,9 +346,10 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<OrthographicCamera>(
                     identity, Bounds2f(Point2f(-.1, -.1), Point2f(.1, .1)), 0.,
                     1., 0., 10., film, nullptr);
+            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
 
             Integrator *integrator =
-                new VolPathIntegrator(8, camera, sampler.first,
+                new VolPathIntegrator(8, camera, sampler.first, extractor,
                                       film->croppedPixelBounds);
             integrators.push_back({integrator, film,
                                    "VolPath, depth 8, Ortho, " +
