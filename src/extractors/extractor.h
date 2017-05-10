@@ -118,10 +118,10 @@ class AlbedoContainer : public Container {
     }
 
   private:
-    const bool integrate;
-    const BxDFType bxdftype;
-    const int nSamples;
     const Point2f p;
+    const BxDFType bxdftype;
+    const bool integrate;
+    const int nSamples;
     Spectrum rho;
     int depth;
     std::vector<Point2f> wi;

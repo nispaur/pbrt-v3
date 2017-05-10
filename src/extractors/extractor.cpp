@@ -66,9 +66,8 @@ void AlbedoContainer::Init(const RayDifferential &r, int depth, const Scene &sce
   this->depth = depth;
 
   if(depth == 0 && integrate) {
+    // Static Random Number Generator; same instance across containers
     static RNG rng;
-    // Using container ptr address to prime the random number generator
-//    rng.SetSequence((uint64_t)((p.x+p.y)*(PCG32_MULT))+(uint64_t)&p);
 
     // Generate sample points for albedo calculation
     for (int i = 0; i < nSamples; ++i) {
@@ -154,7 +153,7 @@ std::unique_ptr<ExtractorTileManager> ExtractorManager::GetNewExtractorTile(cons
 }
 
 void ExtractorManager::MergeTiles(std::unique_ptr<ExtractorTileManager> tiles) {
-  for(int i = 0; i < extractors.size(); ++i) {
+  for(uint i = 0; i < extractors.size(); ++i) {
 
     extractors[i]->film->MergeFilmTile(std::move(tiles->GetTile(i)));
   }
@@ -162,14 +161,14 @@ void ExtractorManager::MergeTiles(std::unique_ptr<ExtractorTileManager> tiles) {
 
 void ExtractorManager::WriteOutput() {
   // TODO: Generic output
-  for(int i = 0; i < extractors.size(); ++i) {
+  for(uint i = 0; i < extractors.size(); ++i) {
     extractors[i]->film->WriteImage();
   }
 }
 
 void ExtractorTileManager::AddSamples(const Point2f &pFilm,
                              std::unique_ptr<Containers> containers, Float sampleWeight) {
-  for (int i = 0; i < filmtiles.size(); ++i) {
+  for (uint i = 0; i < filmtiles.size(); ++i) {
     filmtiles[i]->AddSample(pFilm, containers->ToSample(i), sampleWeight);
   }
 }
