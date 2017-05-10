@@ -44,6 +44,7 @@
 #include "paramset.h"
 #include "sampling.h"
 #include "progressreporter.h"
+#include "extractors/pathextractor.h"
 
 namespace pbrt {
 
@@ -157,8 +158,9 @@ Spectrum MLTIntegrator::L(const Scene &scene, MemoryArena &arena,
 
     // Execute connection strategy and return the radiance estimate
     sampler.StartStream(connectionStreamIndex);
+    PathExtractorContainer container(*pRaster);
     return ConnectBDPT(scene, lightVertices, cameraVertices, s, t, *lightDistr,
-                       lightToIndex, *camera, sampler, pRaster) *
+                       lightToIndex, *camera, sampler, pRaster, container) *
            nStrategies;
 }
 

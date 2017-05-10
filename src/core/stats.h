@@ -183,6 +183,7 @@ enum class Prof {
     TexFiltEWA,
     ExtractorInit,
     ExtractorReport,
+    PathExtractorRegexTest,
     NumProfCategories
 };
 
@@ -239,6 +240,7 @@ static const char *ProfNames[] = {
     "MIPMap::Lookup() (EWA)",
     "Extractor::Init()",
     "Extractor::ReportValue()",
+    "PathExtractor::isValidPath()",
 };
 
 static_assert((int)Prof::NumProfCategories ==

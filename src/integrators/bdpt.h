@@ -56,6 +56,9 @@ extern Float CorrectShadingNormal(const SurfaceInteraction &isect,
                                   const Vector3f &wo, const Vector3f &wi,
                                   TransportMode mode);
 
+/// Path Extractor forward declaration
+class PathExtractorContainer;
+
 // EndpointInteraction Declarations
 struct EndpointInteraction : Interaction {
     union {
@@ -128,23 +131,34 @@ class BDPTIntegrator : public Integrator {
   public:
     // BDPTIntegrator Public Methods
     BDPTIntegrator(std::shared_ptr<Sampler> sampler,
-                   std::shared_ptr<const Camera> camera, int maxDepth,
+                   std::shared_ptr<const Camera> camera,
+                   std::shared_ptr<ExtractorManager> extractor, int maxDepth,
                    bool visualizeStrategies, bool visualizeWeights,
                    const Bounds2i &pixelBounds,
                    const std::string &lightSampleStrategy = "power")
         : sampler(sampler),
           camera(camera),
+          extractor(extractor),
           maxDepth(maxDepth),
           visualizeStrategies(visualizeStrategies),
           visualizeWeights(visualizeWeights),
           pixelBounds(pixelBounds),
           lightSampleStrategy(lightSampleStrategy) {}
+    BDPTIntegrator(std::shared_ptr<Sampler> sampler,
+                   std::shared_ptr<const Camera> camera, int maxDepth,
+                   bool visualizeStrategies, bool visualizeWeights,
+                   const Bounds2i &pixelBounds,
+                   const std::string &lightSampleStrategy = "power")
+         : BDPTIntegrator(sampler, camera, std::shared_ptr<ExtractorManager>(new ExtractorManager()), maxDepth,
+    visualizeStrategies, visualizeWeights, pixelBounds, lightSampleStrategy) {}
+
     void Render(const Scene &scene);
 
   private:
     // BDPTIntegrator Private Data
     std::shared_ptr<Sampler> sampler;
     std::shared_ptr<const Camera> camera;
+    std::shared_ptr<ExtractorManager> extractor;
     const int maxDepth;
     const bool visualizeStrategies;
     const bool visualizeWeights;
@@ -437,7 +451,7 @@ Spectrum ConnectBDPT(
     const Scene &scene, Vertex *lightVertices, Vertex *cameraVertices, int s,
     int t, const Distribution1D &lightDistr,
     const std::unordered_map<const Light *, size_t> &lightToIndex,
-    const Camera &camera, Sampler &sampler, Point2f *pRaster,
+    const Camera &camera, Sampler &sampler, Point2f *pRaster, PathExtractorContainer &container,
     Float *misWeight = nullptr);
 BDPTIntegrator *CreateBDPTIntegrator(const ParamSet &params,
                                      std::shared_ptr<Sampler> sampler,

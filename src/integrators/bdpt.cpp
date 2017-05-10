@@ -32,6 +32,7 @@
 
 // integrators/bdpt.cpp*
 #include "integrators/bdpt.h"
+#include "extractors/pathextractor.h"
 #include "film.h"
 #include "filters/box.h"
 #include "integrator.h"
@@ -40,6 +41,8 @@
 #include "progressreporter.h"
 #include "sampler.h"
 #include "stats.h"
+
+#include <regex>
 
 namespace pbrt {
 
@@ -312,7 +315,18 @@ void BDPTIntegrator::Render(const Scene &scene) {
         lightToIndex[scene.lights[i].get()] = i;
 
     // Partition the image into tiles
+
     Film *film = camera->film;
+    Film *extractorFilm = new Film(
+            film->fullResolution,
+            Bounds2f(Point2f(0, 0), Point2f(1, 1)),
+            std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())), film->diagonal, "pextract_" + film->filename, 1.f);
+    const std::string sdsregex = "^L(S|D)*SDS(S|D)*E$";
+    const std::string directdiffuse = "^LDE$";
+    const std::string eggcaustic = "^LD*SSDE";
+    PathExtractor pathextractor = PathExtractor("");
+    std::regex r(eggcaustic, std::regex::nosubs|std::regex::optimize);
+
     const Bounds2i sampleBounds = film->GetSampleBounds();
     const Vector2i sampleExtent = sampleBounds.Diagonal();
     const int tileSize = 16;
@@ -355,6 +369,11 @@ void BDPTIntegrator::Render(const Scene &scene) {
             Bounds2i tileBounds(Point2i(x0, y0), Point2i(x1, y1));
             std::unique_ptr<FilmTile> filmTile =
                 camera->film->GetFilmTile(tileBounds);
+
+            // Get _FilmTile_ for extractors
+            std::unique_ptr<FilmTile> pathextractorTile =
+                    extractorFilm->GetFilmTile(tileBounds);
+
             for (Point2i pPixel : tileBounds) {
                 tileSampler->StartPixel(pPixel);
                 if (!InsideExclusive(pPixel, pixelBounds))
@@ -386,9 +405,12 @@ void BDPTIntegrator::Render(const Scene &scene) {
 
                     // Execute all BDPT connection strategies
                     Spectrum L(0.f);
+                    Spectrum filteredL(0.f);
                     for (int t = 1; t <= nCamera; ++t) {
                         for (int s = 0; s <= nLight; ++s) {
                             int depth = t + s - 2;
+                            std::unique_ptr<PathExtractorContainer> container = pathextractor.GetNewPathExtractorContainer(pFilm);
+
                             if ((s == 1 && t == 1) || depth < 0 ||
                                 depth > maxDepth)
                                 continue;
@@ -399,7 +421,7 @@ void BDPTIntegrator::Render(const Scene &scene) {
                             Spectrum Lpath = ConnectBDPT(
                                 scene, lightVertices, cameraVertices, s, t,
                                 *lightDistr, lightToIndex, *camera, *tileSampler,
-                                &pFilmNew, &misWeight);
+                                &pFilmNew, *container, &misWeight);
                             VLOG(2) << "Connect bdpt s: " << s <<", t: " << t <<
                                 ", Lpath: " << Lpath << ", misWeight: " << misWeight;
                             if (visualizeStrategies || visualizeWeights) {
@@ -411,23 +433,41 @@ void BDPTIntegrator::Render(const Scene &scene) {
                                 weightFilms[BufferIndex(s, t)]->AddSplat(
                                     pFilmNew, value);
                             }
-                            if (t != 1)
-                                L += Lpath;
-                            else
-                                film->AddSplat(pFilmNew, Lpath);
+
+                            if (t != 1) {
+                              L += Lpath;
+                              // Add extractor contribution to extractor film
+                              // extractorTiles->AddSamples(pFilm, std::move(container));
+                              if(container->isValidPath(r)) {
+                                VLOG(2) << "New matching path" << container->path << "\n";
+                                filteredL += Lpath;
+//                              } else if (misWeight > 0.f) {
+                                // VLOG(2) << "Incorrect path" << container->path << "\n";
+                              }
+                            }
+                            else {
+                              film->AddSplat(pFilmNew, Lpath);
+                              if(container->isValidPath(r)) {
+                                VLOG(2) << "New matching direct path" << container->path << "\n";
+                                extractorFilm->AddSplat(pFilmNew, Lpath);
+                              }
+                            }
                         }
                     }
                     VLOG(2) << "Add film sample pFilm: " << pFilm << ", L: " << L <<
                         ", (y: " << L.y() << ")";
                     filmTile->AddSample(pFilm, L);
+                    pathextractorTile->AddSample(pFilm, filteredL);
                     arena.Reset();
                 } while (tileSampler->StartNextSample());
             }
             film->MergeFilmTile(std::move(filmTile));
+            extractorFilm->MergeFilmTile(std::move(pathextractorTile));
             reporter.Update();
         }, Point2i(nXTiles, nYTiles));
         reporter.Done();
     }
+    extractorFilm->WriteImage(1.0f / sampler->samplesPerPixel);
     film->WriteImage(1.0f / sampler->samplesPerPixel);
 
     // Write buffers for debug visualization
@@ -442,7 +482,7 @@ Spectrum ConnectBDPT(
     const Scene &scene, Vertex *lightVertices, Vertex *cameraVertices, int s,
     int t, const Distribution1D &lightDistr,
     const std::unordered_map<const Light *, size_t> &lightToIndex,
-    const Camera &camera, Sampler &sampler, Point2f *pRaster,
+    const Camera &camera, Sampler &sampler, Point2f *pRaster, PathExtractorContainer &container,
     Float *misWeightPtr) {
     ProfilePhase _(Prof::BDPTConnectSubpaths);
     Spectrum L(0.f);
@@ -457,6 +497,7 @@ Spectrum ConnectBDPT(
         const Vertex &pt = cameraVertices[t - 1];
         if (pt.IsLight()) L = pt.Le(scene, cameraVertices[t - 2]) * pt.beta;
         DCHECK(!L.HasNaNs());
+        container.ReportData(cameraVertices, t);
     } else if (t == 1) {
         // Sample a point on the camera and connect it to the light subpath
         const Vertex &qs = lightVertices[s - 1];
@@ -475,6 +516,9 @@ Spectrum ConnectBDPT(
                 // Only check visibility after we know that the path would
                 // make a non-zero contribution.
                 if (!L.IsBlack()) L *= vis.Tr(scene, sampler);
+
+                // Report if path has a non-zero throughput
+                container.ReportData(lightVertices, sampled, s, VertexInteraction::Light);
             }
         }
     } else if (s == 1) {
@@ -500,6 +544,9 @@ Spectrum ConnectBDPT(
                 if (pt.IsOnSurface()) L *= AbsDot(wi, pt.ns());
                 // Only check visibility if the path would carry radiance.
                 if (!L.IsBlack()) L *= vis.Tr(scene, sampler);
+
+                // Report if path has a non-zero throughput
+                container.ReportData(cameraVertices, sampled, t, VertexInteraction::Camera);
             }
         }
     } else {
@@ -512,6 +559,9 @@ Spectrum ConnectBDPT(
                 ", pt.f(qs): " << pt.f(qs, TransportMode::Radiance) << ", G: " << G(scene, sampler, qs, pt) <<
                 ", dist^2: " << DistanceSquared(qs.p(), pt.p());
             if (!L.IsBlack()) L *= G(scene, sampler, qs, pt);
+
+            // Report if path has a non-zero throughput
+            container.ReportData(lightVertices, cameraVertices, s, t);
         }
     }
 
@@ -528,6 +578,8 @@ Spectrum ConnectBDPT(
     DCHECK(!std::isnan(misWeight));
     L *= misWeight;
     if (misWeightPtr) *misWeightPtr = misWeight;
+    // Report path throughput for extractor film
+    container.ReportData(L);
     return L;
 }
 
