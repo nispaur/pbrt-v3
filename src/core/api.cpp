@@ -47,6 +47,7 @@
 #include "cameras/orthographic.h"
 #include "cameras/perspective.h"
 #include "cameras/realistic.h"
+#include "extractors/pathextractor.h"
 #include "filters/box.h"
 #include "filters/gaussian.h"
 #include "filters/mitchell.h"
@@ -709,6 +710,9 @@ Extractor *MakeExtractor(const std::string &ExtractorName,
     }
     else if (ExtractorName == "depth") {
         extractor = CreateZExtractor(ExtractorParams, fullResolution, diagonal, imageFilename);
+    }
+    else if (ExtractorName == "path") {
+        extractor = CreatePathExtractor(ExtractorParams, fullResolution, diagonal, imageFilename);
     }
     else {
         Error("Extractor \"%s\" unknown", ExtractorName.c_str());
@@ -1499,9 +1503,9 @@ Integrator *RenderOptions::MakeIntegrator() const {
     else if (IntegratorName == "volpath")
         integrator = CreateVolPathIntegrator(IntegratorParams, sampler, camera, extractor);
     else if (IntegratorName == "bdpt") {
-        integrator = CreateBDPTIntegrator(IntegratorParams, sampler, camera);
+        integrator = CreateBDPTIntegrator(IntegratorParams, sampler, camera, extractor);
     } else if (IntegratorName == "mlt") {
-        integrator = CreateMLTIntegrator(IntegratorParams, camera);
+        integrator = CreateMLTIntegrator(IntegratorParams, camera, extractor);
     } else if (IntegratorName == "sppm") {
         integrator = CreateSPPMIntegrator(IntegratorParams, camera);
     } else {

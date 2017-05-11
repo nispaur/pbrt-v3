@@ -107,7 +107,9 @@ class MLTSampler : public Sampler {
 class MLTIntegrator : public Integrator {
   public:
     // MLTIntegrator Public Methods
-    MLTIntegrator(std::shared_ptr<const Camera> camera, int maxDepth,
+    MLTIntegrator(std::shared_ptr<const Camera> camera,
+                  std::shared_ptr<ExtractorManager> extractor,
+                  int maxDepth,
                   int nBootstrap, int nChains, int mutationsPerPixel,
                   Float sigma, Float largeStepProbability)
         : camera(camera),
@@ -126,6 +128,7 @@ class MLTIntegrator : public Integrator {
   private:
     // MLTIntegrator Private Data
     std::shared_ptr<const Camera> camera;
+    std::shared_ptr<ExtractorManager> extractor;
     const int maxDepth;
     const int nBootstrap;
     const int nChains;
@@ -134,7 +137,8 @@ class MLTIntegrator : public Integrator {
 };
 
 MLTIntegrator *CreateMLTIntegrator(const ParamSet &params,
-                                   std::shared_ptr<const Camera> camera);
+                                   std::shared_ptr<const Camera> camera,
+                                   std::shared_ptr<ExtractorManager> extractor);
 
 }  // namespace pbrt
 

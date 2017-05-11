@@ -13,7 +13,6 @@
 
 namespace pbrt {
 
-
 // Container class
 
 class Container {
@@ -21,11 +20,15 @@ class Container {
     Container() {};
 
     virtual void Init(const RayDifferential &r, int depth, const Scene &scene) =0;
-    virtual void ReportData(const SurfaceInteraction &isect) =0;
+    virtual void ReportData(const SurfaceInteraction &isect) {};
     virtual void ReportData(const RayDifferential &r) {};
+    virtual void ReportData(const Spectrum &L) {};
+    virtual void BuildPath(const Vertex *lightVertrices, const Vertex *cameraVertrices, int s, int t) {};
+    virtual void AddSplat(const Point2f &pSplat, Film *film) {};
     virtual Spectrum ToSample() const = 0;
 
     virtual ~Container() {}
+
 };
 
 // Functor class
@@ -60,15 +63,41 @@ class Containers {
         c->ReportData(value);
     }
 
+    void BuildPath(const Vertex *lightVertrices, const Vertex *cameraVertrices, int s, int t) {
+      for(std::shared_ptr<Container> c : containers)
+        c->BuildPath(lightVertrices, cameraVertrices, s, t);
+    }
+
     Spectrum ToSample(int id) const {
       CHECK_LT(id, containers.size());
       return containers[id]->ToSample();
     }
+
+    // TODO: cleaner approach
+    void AddSplats(int id, const Point2f &pSplat, Film *film) const {
+      CHECK_LT(id, containers.size());
+      return containers[id]->AddSplat(pSplat, film);
+    }
+
   private:
     std::vector<std::shared_ptr<Container>> containers;
 };
 
 // Extractor Manager
+
+class ExtractorFilmTile {
+  public:
+
+    void AddSample(const Point2f &pFilm, std::unique_ptr<Container> container, Float sampleWeight = 1.f) {
+      tile->AddSample(pFilm, container->ToSample(), sampleWeight);
+    }
+
+    std::unique_ptr<FilmTile> GetTile() {
+      return std::move(tile);
+    }
+  private:
+    std::unique_ptr<FilmTile> tile;
+};
 
 class ExtractorTileManager {
   public:
@@ -83,6 +112,7 @@ class ExtractorTileManager {
       CHECK_LT(id, filmtiles.size());
       return std::move(filmtiles[id]);
     }
+
   private:
     std::vector<std::unique_ptr<FilmTile>> filmtiles;
 };
@@ -98,11 +128,13 @@ class ExtractorManager {
     std::unique_ptr<Containers> GetNewContainer(Point2f p);
     std::unique_ptr<ExtractorTileManager> GetNewExtractorTile(const Bounds2i &sampleBounds);
     void MergeTiles(std::unique_ptr<ExtractorTileManager> tiles);
-    void WriteOutput();
+    void WriteOutput(Float splatScale = 1);
+    void AddSplats(const Point2f &pSplat, const Containers &container);
 
-    private:
-      std::vector<Extractor*> extractors;
+  private:
+    std::vector<Extractor*> extractors;
 };
+
 
 // Albedo Extractor
 

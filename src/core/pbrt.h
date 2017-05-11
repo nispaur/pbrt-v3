@@ -161,6 +161,22 @@ struct Options {
 extern Options PbrtOptions;
 class TextureParams;
 
+// Extractor forward declarations
+class Extractor;
+class ExtractorFunc;
+class ExtractorManager;
+class ExtractorTile;
+class ExtractorTileManager;
+class Containers;
+class PathSubContainer;
+class Container;
+
+// Path/BDPT Vertex forward declarations
+class Vertex;
+class EndpointInteraction;
+enum class VertexInteraction;
+struct Path;
+
 // Global Constants
 #ifdef _MSC_VER
 #define MaxFloat std::numeric_limits<Float>::max()

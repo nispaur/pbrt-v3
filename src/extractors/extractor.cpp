@@ -159,19 +159,26 @@ void ExtractorManager::MergeTiles(std::unique_ptr<ExtractorTileManager> tiles) {
   }
 }
 
-void ExtractorManager::WriteOutput() {
+void ExtractorManager::WriteOutput(Float splatScale) {
   // TODO: Generic output
   for(uint i = 0; i < extractors.size(); ++i) {
-    extractors[i]->film->WriteImage();
+    extractors[i]->film->WriteImage(splatScale);
+  }
+}
+
+void ExtractorManager::AddSplats(const Point2f &pSplat, const Containers &containers) {
+  for (uint i = 0; i < extractors.size(); ++i) {
+    containers.AddSplats(i, pSplat, extractors[i]->film);
   }
 }
 
 void ExtractorTileManager::AddSamples(const Point2f &pFilm,
-                             std::unique_ptr<Containers> containers, Float sampleWeight) {
+                                      std::unique_ptr<Containers> containers, Float sampleWeight) {
   for (uint i = 0; i < filmtiles.size(); ++i) {
     filmtiles[i]->AddSample(pFilm, containers->ToSample(i), sampleWeight);
   }
 }
+
 
 void Containers::Init(const RayDifferential &r, int depth, const Scene &scene) {
   for (std::shared_ptr<Container> c : containers) {

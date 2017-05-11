@@ -5,13 +5,10 @@
 #define PBRT_EXTRACTOR_PATH_H
 
 #include <regex>
-#include "integrators/bdpt.h"
 #include "pbrt.h"
+#include "extractors/extractor.h"
 
 namespace pbrt {
-
-// Vertex structure
-struct Vertex;
 
 enum class VertexInteraction { Camera, Light, Diffuse, Specular };
 struct PathVertex {
@@ -19,14 +16,13 @@ struct PathVertex {
 
     union {
         SurfaceInteraction si;
-        EndpointInteraction ei;
+        Interaction ei; // TODO: Full EndpointInteraction support
         MediumInteraction mi; // TODO: handle medium interactions vertices
     };
 
     PathVertex() : ei() {}
 
-
-    static inline PathVertex FromBDPTVertex(Vertex v);
+    static inline PathVertex FromBDPTVertex(const Vertex &v);
 
     const Point3f &p() const { return GetInteraction().p; }
 
@@ -62,7 +58,11 @@ struct PathVertex {
 
 struct Path {
     Point2f pOrigin;
+    Spectrum L;
     std::vector<PathVertex> vertices;
+    bool completePath = false;
+    int s;
+    int t;
 
     std::string GetPathExpression() const {
       std::string s = "";
@@ -82,11 +82,11 @@ struct Path {
             break;
         }
       }
+
       return s;
-      // TODO: lower log error level to info
-      LOG(FATAL) << "Empty path";
-      return "";
     }
+
+    bool isValidPath(const std::regex &pathPattern) const;
 
     friend std::ostream &operator<<(std::ostream &os, const Path &p) {
       return os << p.ToString();
@@ -106,58 +106,57 @@ struct Path {
 
 };
 
-
 class PathExtractorContainer : public Container {
   public:
-    PathExtractorContainer(Point2f pFilm) : pFilm(pFilm) {};
+    PathExtractorContainer(Point2f pFilm, const std::regex &r) :
+            pFilm(pFilm),
+            regex(r) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &Scene);
-    // BDPT Camera-complete subpath
-    void ReportData(Vertex *cameraVertices, int t);
-    // t == 1 / s > 0 light-camera connect
-    void ReportData(Vertex *lightVertices, Vertex cameraVertex, int s, VertexInteraction mainPath);
-    void ReportData(Vertex *lightVertices, Vertex *cameraVertices, int s, int t);
 
-    // FIXME: this.
-    void ReportData(const SurfaceInteraction &isect) {}
-
-    void ReportData(Spectrum beta) {
-      L = beta;
+    void ReportData(const Spectrum &L) {
+      paths[{s_state, t_state}].L = L;
     }
 
-    bool isValidPath(const std::regex &pathPattern) const;
+    Spectrum ToSample() const;
 
-    Spectrum ToSample() const {
-      return L;
-    }
+    void AddSplat(const Point2f &pSplat, Film *film);
 
-    Path path;
-  private:
     // TODO: If possible, check path regex before adding vertices to the container
-    void BuildPath(Vertex *lightVertices, Vertex *cameraVertices, int s, int t);
+    void BuildPath(const Vertex *lightVertices, const Vertex *cameraVertices, int s, int t);
 
+  private:
+    const std::regex regex;
     const Point2f pFilm;
-    Spectrum L;
+    // path state
+    bool validPath;
+    int s_state, t_state;
+    std::map<std::pair<int,int>,Path> paths;
 };
+
+
 
 class PathExtractor : public ExtractorFunc {
   public:
     PathExtractor(const std::string pathExpression) :
-            pathExpression(pathExpression) {};
+      r(std::regex(pathExpression, std::regex::nosubs|std::regex::optimize)) {};
 
     std::shared_ptr<Container> GetNewContainer(Point2f p) const {
-      return std::shared_ptr<Container>(new PathExtractorContainer(p));
+      return std::shared_ptr<Container>(new PathExtractorContainer(p, r));
     }
 
     std::unique_ptr<PathExtractorContainer> GetNewPathExtractorContainer(Point2f p) const {
-      return std::unique_ptr<PathExtractorContainer>(new PathExtractorContainer(p));
+      return std::unique_ptr<PathExtractorContainer>(new PathExtractorContainer(p, r));
     }
 
-
   private:
-    const std::string pathExpression;
+    const std::regex r;
 
 };
+
+
+Extractor *CreatePathExtractor(const ParamSet &params, const Point2i fullResolution,
+                               const Float diagonal, const std::string imageFilename);
 
 }
 

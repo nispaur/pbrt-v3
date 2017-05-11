@@ -158,9 +158,12 @@ Spectrum MLTIntegrator::L(const Scene &scene, MemoryArena &arena,
 
     // Execute connection strategy and return the radiance estimate
     sampler.StartStream(connectionStreamIndex);
-    PathExtractorContainer container(*pRaster);
+
+    // Get a new container for reporting
+    std::unique_ptr<Containers> container = extractor->GetNewContainer(*pRaster);
+
     return ConnectBDPT(scene, lightVertices, cameraVertices, s, t, *lightDistr,
-                       lightToIndex, *camera, sampler, pRaster, container) *
+                       lightToIndex, *camera, sampler, pRaster, *container) *
            nStrategies;
 }
 
@@ -268,7 +271,8 @@ void MLTIntegrator::Render(const Scene &scene) {
 }
 
 MLTIntegrator *CreateMLTIntegrator(const ParamSet &params,
-                                   std::shared_ptr<const Camera> camera) {
+                                   std::shared_ptr<const Camera> camera,
+                                   std::shared_ptr<ExtractorManager> extractor) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
     int nBootstrap = params.FindOneInt("bootstrapsamples", 100000);
     int64_t nChains = params.FindOneInt("chains", 1000);
@@ -280,7 +284,7 @@ MLTIntegrator *CreateMLTIntegrator(const ParamSet &params,
         mutationsPerPixel = std::max(1, mutationsPerPixel / 16);
         nBootstrap = std::max(1, nBootstrap / 16);
     }
-    return new MLTIntegrator(camera, maxDepth, nBootstrap, nChains,
+    return new MLTIntegrator(camera, extractor, maxDepth, nBootstrap, nChains,
                              mutationsPerPixel, sigma, largeStepProbability);
 }
 
