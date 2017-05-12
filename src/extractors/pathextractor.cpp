@@ -8,6 +8,7 @@
 #include "paramset.h"
 #include "filters/box.h"
 #include <regex>
+#include <algorithm>
 
 namespace pbrt {
 
@@ -20,9 +21,9 @@ void PathExtractorContainer::BuildPath(const Vertex *lightVertices, const Vertex
   // Light to camera vertices
   Path path(s+t);
 
-  for (int i = 0; i < s; ++i) {
-    path.vertices.push_back(PathVertex::FromBDPTVertex(lightVertices[i]));
-  }
+  std::for_each(lightVertices, lightVertices+s, [&](const Vertex &v) {
+      path.vertices.push_back(PathVertex::FromBDPTVertex(v)); });
+
   // Camera to light vertices, must be added in reverse order
   for (int i = t - 1; i >= 0; --i) {
     path.vertices.push_back(PathVertex::FromBDPTVertex(cameraVertices[i]));

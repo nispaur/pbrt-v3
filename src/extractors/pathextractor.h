@@ -62,13 +62,14 @@ struct Path {
     }
 
     Path() {};
+
     // Point2f pOrigin;
     Spectrum L;
     std::vector<PathVertex> vertices;
 
     std::string GetPathExpression() const {
       std::string s = "";
-      for(PathVertex v : vertices) {
+      for(const PathVertex &v : vertices) {
         switch (v.type) {
           case VertexInteraction::Camera:
             s += "E";
