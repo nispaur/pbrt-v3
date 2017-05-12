@@ -57,12 +57,14 @@ struct PathVertex {
 };
 
 struct Path {
-    Point2f pOrigin;
+    Path(int length) {
+      vertices.reserve(length);
+    }
+
+    Path() {};
+    // Point2f pOrigin;
     Spectrum L;
     std::vector<PathVertex> vertices;
-    bool completePath = false;
-    int s;
-    int t;
 
     std::string GetPathExpression() const {
       std::string s = "";
@@ -115,7 +117,9 @@ class PathExtractorContainer : public Container {
     void Init(const RayDifferential &r, int depth, const Scene &Scene);
 
     void ReportData(const Spectrum &L) {
-      paths[{s_state, t_state}].L = L;
+      auto p = paths.find({s_state,t_state});
+      if(p != paths.end())
+        paths.at({s_state, t_state}).L = L;
     }
 
     Spectrum ToSample() const;
@@ -126,10 +130,9 @@ class PathExtractorContainer : public Container {
     void BuildPath(const Vertex *lightVertices, const Vertex *cameraVertices, int s, int t);
 
   private:
-    const std::regex regex;
     const Point2f pFilm;
+    const std::regex regex;
     // path state
-    bool validPath;
     int s_state, t_state;
     std::map<std::pair<int,int>,Path> paths;
 };

@@ -12,13 +12,14 @@
 namespace pbrt {
 
 void PathExtractorContainer::Init(const RayDifferential &r, int depth, const Scene &Scene) {
-  validPath = false;
 }
 
 void PathExtractorContainer::BuildPath(const Vertex *lightVertices, const Vertex *cameraVertices, int s, int t) {
+  ProfilePhase p(Prof::PathExtractorBuildPath);
   // Light->Camera order
   // Light to camera vertices
-  Path path;
+  Path path(s+t);
+
   for (int i = 0; i < s; ++i) {
     path.vertices.push_back(PathVertex::FromBDPTVertex(lightVertices[i]));
   }
@@ -27,29 +28,32 @@ void PathExtractorContainer::BuildPath(const Vertex *lightVertices, const Vertex
     path.vertices.push_back(PathVertex::FromBDPTVertex(cameraVertices[i]));
   }
 
+  // Save last path state even if not valid
+  s_state = s;
+  t_state = t;
+
   // TODO: constructor for Path
-  validPath = true;
-  path.s = s_state = s;
-  path.t = t_state = t;
+  if(!path.isValidPath(regex))
+    return;
+
   paths[{s,t}] = path;
 }
 
 Spectrum PathExtractorContainer::ToSample() const {
   Spectrum L(0.f);
-  for (std::map<std::pair<int,int>,Path>::const_iterator it=paths.begin(); it!=paths.end(); ++it) {
-    if (it->first.second != 1 && it->second.isValidPath(regex)) {
-      VLOG(2) << "New matching path" << it->second << "\n";
-      L += it->second.L;
-    }
+  for (const auto &path : paths) {
+    VLOG(2) << "New matching path" << path.second << "\n";
+    L += path.second.L;
   }
   return L;
 }
 
 void PathExtractorContainer::AddSplat(const Point2f &pSplat, Film *film) {
   // TODO: group w/ ToSample
-  Path path = paths[{s_state, t_state}];
-  if(path.isValidPath(regex) && t_state == 1 && validPath) {
-    film->AddSplat(pSplat, path.L);
+  auto path = paths.find({s_state, t_state});
+  if(path != paths.end()) {
+    film->AddSplat(pSplat, path->second.L);
+    paths.erase(path); // Remove path from sampled paths vector
   }
 }
 
