@@ -28,7 +28,7 @@ Spectrum NContainer::ToSample() const {
 }
 
 
-std::shared_ptr<Container> NormalExtractor::GetNewContainer(Point2f p) const {
+std::shared_ptr<Container> NormalExtractor::GetNewContainer(const Point2f &p) const {
     return std::shared_ptr<Container>(new NContainer(p));
 }
 
@@ -79,8 +79,8 @@ void AlbedoContainer::Init(const RayDifferential &r, int depth, const Scene &sce
   }
 }
 
-Extractor *CreateNormalExtractor(const ParamSet &params, const Point2i fullResolution,
-                                 const Float diagonal, const std::string imageFilename) {
+Extractor *CreateNormalExtractor(const ParamSet &params, const Point2i &fullResolution,
+                                 Float diagonal, const std::string &imageFilename) {
   std::string filename = params.FindOneString("outputfile", "");
   if (filename == "") filename = "normal_" + imageFilename;
 
@@ -91,8 +91,8 @@ Extractor *CreateNormalExtractor(const ParamSet &params, const Point2i fullResol
           diagonal, filename, 1.f));
 }
 
-Extractor *CreateZExtractor(const ParamSet &params, const Point2i fullResolution,
-                            const Float diagonal, const std::string imageFilename) {
+Extractor *CreateZExtractor(const ParamSet &params, const Point2i &fullResolution,
+                            Float diagonal, const std::string &imageFilename) {
   std::string filename = params.FindOneString("outputfile", "");
   if (filename == "") filename = "depth_" + imageFilename;
 
@@ -104,8 +104,8 @@ Extractor *CreateZExtractor(const ParamSet &params, const Point2i fullResolution
 }
 
 
-Extractor *CreateAlbedoExtractor(const ParamSet &params, const Point2i fullResolution,
-                                 const Float diagonal, const std::string imageFilename) {
+Extractor *CreateAlbedoExtractor(const ParamSet &params, const Point2i &fullResolution,
+                                 Float diagonal, const std::string &imageFilename) {
   std::string filename = params.FindOneString("outputfile", "");
   if (filename == "") filename = "albedo_" + imageFilename;
 
@@ -134,7 +134,7 @@ Extractor *CreateAlbedoExtractor(const ParamSet &params, const Point2i fullResol
 }
 
 
-std::unique_ptr<Containers> ExtractorManager::GetNewContainer(Point2f p) {
+std::unique_ptr<Containers> ExtractorManager::GetNewContainer(const Point2f &p) {
   Containers *container = new Containers();
   for(Extractor *ext : extractors) {
     container->Add(ext->f->GetNewContainer(p));

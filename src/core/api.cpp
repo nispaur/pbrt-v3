@@ -698,8 +698,8 @@ std::shared_ptr<Sampler> MakeSampler(const std::string &name,
 }
 
 Extractor *MakeExtractor(const std::string &ExtractorName,
-                         const ParamSet &ExtractorParams, const Point2i fullResolution,
-                         const Float diagonal, const std::string imageFilename) {
+                         const ParamSet &ExtractorParams, const Point2i &fullResolution,
+                         Float diagonal, const std::string &imageFilename) {
     Extractor *extractor = nullptr;
 
     if (ExtractorName == "normal") {

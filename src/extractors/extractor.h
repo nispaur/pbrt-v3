@@ -35,7 +35,7 @@ class Container {
 
 class ExtractorFunc {
   public:
-    virtual std::shared_ptr<Container> GetNewContainer(Point2f p) const = 0;
+    virtual std::shared_ptr<Container> GetNewContainer(const Point2f &p) const = 0;
 };
 
 // Extractor main class
@@ -125,7 +125,7 @@ class ExtractorManager {
       extractors.push_back(extractor);
     }
 
-    std::unique_ptr<Containers> GetNewContainer(Point2f p);
+    std::unique_ptr<Containers> GetNewContainer(const Point2f &p);
     std::unique_ptr<ExtractorTileManager> GetNewExtractorTile(const Bounds2i &sampleBounds);
     void MergeTiles(std::unique_ptr<ExtractorTileManager> tiles);
     void WriteOutput(Float splatScale = 1);
@@ -140,7 +140,7 @@ class ExtractorManager {
 
 class AlbedoContainer : public Container {
   public:
-    AlbedoContainer(Point2f pFilm, const BxDFType &t, bool integrate, int nbSamples) :
+    AlbedoContainer(const Point2f &pFilm, const BxDFType &t, bool integrate, int nbSamples) :
             p(pFilm), bxdftype(t), integrate(integrate), nSamples(nbSamples) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &Scene);
@@ -166,7 +166,7 @@ class AlbedoExtractor : public ExtractorFunc {
     AlbedoExtractor(const BxDFType &type, bool integrate, int nbSamples) :
             type(type), integrateAlbedo(integrate), nbSamples(nbSamples) {}
 
-    std::shared_ptr<Container> GetNewContainer(Point2f p) const {
+    std::shared_ptr<Container> GetNewContainer(const Point2f &p) const {
       return std::shared_ptr<Container>(new AlbedoContainer(p, type, integrateAlbedo, nbSamples));
     }
 
@@ -180,7 +180,7 @@ class AlbedoExtractor : public ExtractorFunc {
 
 class NContainer : public Container {
   public:
-    NContainer(Point2f pFilm) : p(pFilm) {};
+    NContainer(const Point2f &pFilm) : p(pFilm) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &scene);
     void ReportData(const SurfaceInteraction &isect);
@@ -195,14 +195,14 @@ class NContainer : public Container {
 
 class NormalExtractor : public ExtractorFunc {
   public:
-    std::shared_ptr<Container> GetNewContainer(Point2f p) const;
+    std::shared_ptr<Container> GetNewContainer(const Point2f &p) const;
 };
 
 // Depth Extractor
 
 class ZContainer : public Container {
   public:
-    ZContainer(Point2f pFilm) : p(pFilm) {};
+    ZContainer(const Point2f &pFilm) : p(pFilm) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &scene);
     void ReportData(const SurfaceInteraction &isect);
@@ -210,15 +210,14 @@ class ZContainer : public Container {
 
   private:
     const Point2f p;
-    Float zfar;
-    Float znear;
+    Bounds3f wbounds;
     Float distance;
     int depth;
 };
 
 class ZExtractor : public ExtractorFunc {
   public:
-    std::shared_ptr<Container> GetNewContainer(Point2f p) const {
+    std::shared_ptr<Container> GetNewContainer(const Point2f &p) const {
       return std::shared_ptr<Container>(new ZContainer(p));
     }
 };
@@ -226,12 +225,12 @@ class ZExtractor : public ExtractorFunc {
 
 // API Methods
 
-Extractor *CreateNormalExtractor(const ParamSet &params, const Point2i fullResolution,
-                                 const Float diagonal, const std::string imageFilename);
-Extractor *CreateZExtractor(const ParamSet &params, const Point2i fullResolution,
-                            const Float diagonal, const std::string imageFilename);
-Extractor *CreateAlbedoExtractor(const ParamSet &params, const Point2i fullResolution,
-                                 const Float diagonal, const std::string imageFilename);
+Extractor *CreateNormalExtractor(const ParamSet &params, const Point2i &fullResolution,
+                                 Float diagonal, const std::string &imageFilename);
+Extractor *CreateZExtractor(const ParamSet &params, const Point2i &fullResolution,
+                            Float diagonal, const std::string &imageFilename);
+Extractor *CreateAlbedoExtractor(const ParamSet &params, const Point2i &fullResolution,
+                                 Float diagonal, const std::string &imageFilename);
 
 }
 
