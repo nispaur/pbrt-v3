@@ -33,14 +33,23 @@ std::shared_ptr<Container> NormalExtractor::GetNewContainer(const Point2f &p) co
 }
 
 void ZContainer::Init(const RayDifferential &r, int depth, const Scene &scene) {
-    zfar = scene.WorldBound().pMax.z;
-    znear = scene.WorldBound().pMin.z;
-    this->depth = depth;
+  wbounds = scene.WorldBound();
+  this->depth = depth;
 }
 
 void ZContainer::ReportData(const SurfaceInteraction &isect) {
+    // Find dominant component of the vector (closest to -1 knowing that we are in a left-handed coordinate system)
+    // z \in [-1; 0]
+    // TODO: find better method
+    int z_component = 0;
+    for(int i = 0; i < 2; ++i)
+      z_component = wbounds.pMax[i] <= wbounds.pMax[z_component] ? i : z_component;
+
+    const Float zfar = wbounds.pMax[z_component];
+    const Float znear = wbounds.pMin[z_component];
+
     if(depth == 0) {
-        distance = (isect.p.z-znear)/(zfar-znear);
+        distance = (isect.p[z_component]-znear)/(zfar-znear);
     }
 }
 

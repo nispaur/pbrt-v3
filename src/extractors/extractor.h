@@ -86,6 +86,18 @@ class Containers {
 
 // Extractor Manager
 
+class ExtractorTile {
+  public:
+
+  private:
+};
+
+class ExtractorFilm {
+  public:
+
+  private:
+};
+
 class ExtractorFilmTile {
   public:
 
