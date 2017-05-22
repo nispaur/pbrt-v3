@@ -355,7 +355,7 @@ void SamplerIntegrator::Render(const Scene &scene) {
 
 Spectrum SamplerIntegrator::SpecularReflect(
     const RayDifferential &ray, const SurfaceInteraction &isect,
-    const Scene &scene, Sampler &sampler, MemoryArena &arena, int depth) const {
+    const Scene &scene, Sampler &sampler, MemoryArena &arena, Containers &container, int depth) const {
     // Compute specular reflection direction _wi_ and BSDF value
     Vector3f wo = isect.wo, wi;
     Float pdf;
@@ -385,7 +385,7 @@ Spectrum SamplerIntegrator::SpecularReflect(
             rd.ryDirection =
                 wi - dwody + 2.f * Vector3f(Dot(wo, ns) * dndy + dDNdy * ns);
         }
-        return f * Li(rd, scene, sampler, arena, depth + 1) * AbsDot(wi, ns) /
+        return f * Li(rd, scene, sampler, arena, container, depth + 1) * AbsDot(wi, ns) /
                pdf;
     } else
         return Spectrum(0.f);
@@ -393,7 +393,7 @@ Spectrum SamplerIntegrator::SpecularReflect(
 
 Spectrum SamplerIntegrator::SpecularTransmit(
     const RayDifferential &ray, const SurfaceInteraction &isect,
-    const Scene &scene, Sampler &sampler, MemoryArena &arena, int depth) const {
+    const Scene &scene, Sampler &sampler, MemoryArena &arena, Containers &container, int depth) const {
     Vector3f wo = isect.wo, wi;
     Float pdf;
     const Point3f &p = isect.p;
@@ -435,7 +435,7 @@ Spectrum SamplerIntegrator::SpecularTransmit(
             rd.ryDirection =
                 wi + eta * dwody - Vector3f(mu * dndy + dmudy * ns);
         }
-        L = f * Li(rd, scene, sampler, arena, depth + 1) * AbsDot(wi, ns) / pdf;
+        L = f * Li(rd, scene, sampler, arena, container, depth + 1) * AbsDot(wi, ns) / pdf;
     }
     return L;
 }

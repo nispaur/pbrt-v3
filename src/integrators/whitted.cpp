@@ -45,7 +45,7 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
                                Containers &container, int depth) const {
     Spectrum L(0.);
-    container.Init(ray, depth, scene  );
+    container.Init(ray, depth, scene);
     // Find closest ray intersection or return background radiance
     SurfaceInteraction isect;
     if (!scene.Intersect(ray, &isect)) {
@@ -87,8 +87,8 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
     }
     if (depth + 1 < maxDepth) {
         // Trace rays for specular reflection and refraction
-        L += SpecularReflect(ray, isect, scene, sampler, arena, depth);
-        L += SpecularTransmit(ray, isect, scene, sampler, arena, depth);
+        L += SpecularReflect(ray, isect, scene, sampler, arena, container, depth);
+        L += SpecularTransmit(ray, isect, scene, sampler, arena, container, depth);
     }
     return L;
 }

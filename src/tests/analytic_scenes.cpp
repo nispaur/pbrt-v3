@@ -270,6 +270,7 @@ std::vector<TestIntegrator> GetIntegrators() {
 
     Point2i resolution(10, 10);
     AnimatedTransform identity(new Transform, 0, new Transform, 1);
+    std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
 
     for (auto scene : GetScenes()) {
         // Path tracing integrators
@@ -282,8 +283,6 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<PerspectiveCamera>(
                     identity, Bounds2f(Point2f(-1, -1), Point2f(1, 1)), 0., 1.,
                     0., 10., 45, film, nullptr);
-
-            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
 
             Integrator *integrator =
                 new PathIntegrator(8, camera, sampler.first, extractor,
@@ -304,7 +303,6 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<OrthographicCamera>(
                     identity, Bounds2f(Point2f(-.1, -.1), Point2f(.1, .1)), 0.,
                     1., 0., 10., film, nullptr);
-            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
 
             Integrator *integrator =
                 new PathIntegrator(8, camera, sampler.first, extractor,
@@ -325,8 +323,6 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<PerspectiveCamera>(
                     identity, Bounds2f(Point2f(-1, -1), Point2f(1, 1)), 0., 1.,
                     0., 10., 45, film, nullptr);
-            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
-
 
             Integrator *integrator =
                 new VolPathIntegrator(8, camera, sampler.first, extractor,
@@ -346,7 +342,6 @@ std::vector<TestIntegrator> GetIntegrators() {
                 std::make_shared<OrthographicCamera>(
                     identity, Bounds2f(Point2f(-.1, -.1), Point2f(.1, .1)), 0.,
                     1., 0., 10., film, nullptr);
-            std::shared_ptr<ExtractorManager> extractor = std::shared_ptr<ExtractorManager>(new ExtractorManager());
 
             Integrator *integrator =
                 new VolPathIntegrator(8, camera, sampler.first, extractor,
@@ -370,7 +365,7 @@ std::vector<TestIntegrator> GetIntegrators() {
                     0., 10., 45, film, nullptr);
 
             Integrator *integrator =
-                new BDPTIntegrator(sampler.first, camera, 6, false, false,
+                new BDPTIntegrator(sampler.first, camera, extractor, 6, false, false,
                                    film->croppedPixelBounds);
             integrators.push_back({integrator, film,
                                    "BDPT, depth 8, Perspective, " +
@@ -408,7 +403,7 @@ std::vector<TestIntegrator> GetIntegrators() {
                     0., 10., 45, film, nullptr);
 
             Integrator *integrator = new MLTIntegrator(
-                camera, 8 /* depth */, 100000 /* n bootstrap */,
+                camera, extractor, 8 /* depth */, 100000 /* n bootstrap */,
                 1000 /* nchains */, 1024 /* mutations per pixel */,
                 0.01 /* sigma */, 0.3 /* large step prob */);
             integrators.push_back(
