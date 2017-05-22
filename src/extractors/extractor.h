@@ -23,6 +23,7 @@ class Container {
     virtual void ReportData(const SurfaceInteraction &isect) {};
     virtual void ReportData(const RayDifferential &r) {};
     virtual void ReportData(const Spectrum &L) {};
+    virtual void ReportData(BxDFType T) {};
     virtual void BuildPath(const Vertex *lightVertrices, const Vertex *cameraVertrices, int s, int t) {};
     virtual void AddSplat(const Point2f &pSplat, Film *film) {};
     virtual Spectrum ToSample() const = 0;

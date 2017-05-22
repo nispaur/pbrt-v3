@@ -80,7 +80,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
     Float etaScale = 1;
 
     for (bounces = 0;; ++bounces) {
-      container.Init(r, bounces, scene);
+        container.Init(r, bounces, scene);
         // Find next path vertex and accumulate contribution
         VLOG(2) << "Path tracer bounce " << bounces << ", current L = " << L
                 << ", beta = " << beta;
@@ -182,6 +182,9 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
             ray = pi.SpawnRay(wi);
         }
 
+        // Report Intersection type (diffuse/specular)
+        container.ReportData(flags);
+
         // Possibly terminate the path with Russian roulette.
         // Factor out radiance scaling due to refraction in rrBeta.
         Spectrum rrBeta = beta * etaScale;
@@ -192,6 +195,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
             DCHECK(!std::isinf(beta.y()));
         }
     }
+    container.ReportData(L);
     ReportValue(pathLength, bounces);
     return L;
 }

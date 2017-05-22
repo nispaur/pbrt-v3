@@ -10,25 +10,32 @@
 
 namespace pbrt {
 
-enum class VertexInteraction { Camera, Light, Diffuse, Specular };
-struct PathVertex {
-    VertexInteraction type;
+enum class VertexInteraction { Camera, Light, Diffuse, Specular, Undef };
+static const char VertexNames[] = "ELDSU";
 
+inline uint64_t VertexInteractionToBits(VertexInteraction i) { return 1ull << (int)i; }
+
+struct PathVertex {
+    // TODO: Constructor methods
+
+    VertexInteraction type;
+    Point3f p;
+    Normal3f n;
+    /*
     union {
         SurfaceInteraction si;
         Interaction ei; // TODO: Full EndpointInteraction support
         MediumInteraction mi; // TODO: handle medium interactions vertices
     };
+    */
 
-    PathVertex() : ei() {}
+    PathVertex(const Point3f &p, VertexInteraction type = VertexInteraction::Undef) : p(p), type(type) {}
+    PathVertex(const Interaction &isect, VertexInteraction type = VertexInteraction::Undef) : type(type) {
+      p = isect.p;
+      n = isect.n;
+    }
 
     static inline PathVertex FromBDPTVertex(const Vertex &v);
-
-    const Point3f &p() const { return GetInteraction().p; }
-
-    const Interaction &GetInteraction() const {
-      return si;
-    }
 
     friend std::ostream &operator<<(std::ostream &os, const PathVertex &v) {
       return os << v.ToString();
@@ -49,15 +56,17 @@ struct PathVertex {
         case VertexInteraction::Specular:
           s += "specular interaction";
           break;
+        default:
+          s += "undefined interaction";
       }
-      s += StringPrintf("; p: [ %f, %f, %f ]", p().x, p().y, p().z);
+      s += StringPrintf("; p: [ %f, %f, %f ]", p.x, p.y, p.z);
       s += std::string(" ]");
       return s;
     }
 };
 
 struct Path {
-    Path(int length) {
+    Path(int length) : L(Spectrum(0.f)) {
       vertices.reserve(length);
     }
 
@@ -70,20 +79,7 @@ struct Path {
     std::string GetPathExpression() const {
       std::string s = "";
       for(const PathVertex &v : vertices) {
-        switch (v.type) {
-          case VertexInteraction::Camera:
-            s += "E";
-            break;
-          case VertexInteraction::Light:
-            s +=  "L";
-            break;
-          case VertexInteraction::Diffuse:
-            s +=  "D";
-            break;
-          case VertexInteraction::Specular:
-            s +=  "S";
-            break;
-        }
+        s += VertexNames[(int)(v.type)];
       }
 
       return s;
@@ -101,7 +97,7 @@ struct Path {
       s += " vertices --> ";
 
       for(int i = 0; i < vertices.size(); ++i) {
-        s += StringPrintf(" p%d: [ %f, %f, %f ] ", i, vertices[i].p().x, vertices[i].p().y, vertices[i].p().z);
+        s += StringPrintf(" p%d: [ %f, %f, %f ] ", i, vertices[i].p.x, vertices[i].p.y, vertices[i].p.z);
       }
       s += std::string(" ]");
       return s;
@@ -111,17 +107,15 @@ struct Path {
 
 class PathExtractorContainer : public Container {
   public:
-    PathExtractorContainer(Point2f pFilm, const std::regex &r) :
+    PathExtractorContainer(const Point2f &pFilm, const std::regex &r) :
             pFilm(pFilm),
             regex(r) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &Scene);
+    void ReportData(const SurfaceInteraction &isect);
+    void ReportData(BxDFType T);
 
-    void ReportData(const Spectrum &L) {
-      auto p = paths.find({s_state,t_state});
-      if(p != paths.end())
-        paths.at({s_state, t_state}).L = L;
-    }
+    void ReportData(const Spectrum &L);
 
     Spectrum ToSample() const;
 
@@ -131,10 +125,13 @@ class PathExtractorContainer : public Container {
     void BuildPath(const Vertex *lightVertices, const Vertex *cameraVertices, int s, int t);
 
   private:
+    MemoryArena arena;
     const Point2f pFilm;
     const std::regex regex;
+    bool path_integrator = false;
     // path state
     int s_state, t_state;
+    Path current_path;
     std::map<std::pair<int,int>,Path> paths;
 };
 
@@ -142,25 +139,24 @@ class PathExtractorContainer : public Container {
 
 class PathExtractor : public ExtractorFunc {
   public:
-    PathExtractor(const std::string pathExpression) :
-      r(std::regex(pathExpression, std::regex::nosubs|std::regex::optimize)) {};
+    PathExtractor(const std::string &pathExpression) :
+      r(std::regex(pathExpression, std::regex::optimize)) {};
 
-    std::shared_ptr<Container> GetNewContainer(Point2f p) const {
+    std::shared_ptr<Container> GetNewContainer(const Point2f &p) const {
       return std::shared_ptr<Container>(new PathExtractorContainer(p, r));
     }
 
-    std::unique_ptr<PathExtractorContainer> GetNewPathExtractorContainer(Point2f p) const {
+    std::unique_ptr<PathExtractorContainer> GetNewPathExtractorContainer(const Point2f &p) const {
       return std::unique_ptr<PathExtractorContainer>(new PathExtractorContainer(p, r));
     }
 
   private:
     const std::regex r;
-
 };
 
 
-Extractor *CreatePathExtractor(const ParamSet &params, const Point2i fullResolution,
-                               const Float diagonal, const std::string imageFilename);
+Extractor *CreatePathExtractor(const ParamSet &params, const Point2i &fullResolution,
+                               const Float diagonal, const std::string &imageFilename);
 
 }
 

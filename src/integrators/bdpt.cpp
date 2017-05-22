@@ -422,6 +422,8 @@ void BDPTIntegrator::Render(const Scene &scene) {
                                     pFilmNew, value);
                             }
 
+                            container->ReportData(Lpath);
+
                             if (t != 1) {
                               L += Lpath;
                             }
@@ -430,7 +432,6 @@ void BDPTIntegrator::Render(const Scene &scene) {
                               extractor->AddSplats(pFilmNew, *container);
                             }
 
-                            container->ReportData(Lpath);
                         }
                     }
                     VLOG(2) << "Add film sample pFilm: " << pFilm << ", L: " << L <<

@@ -56,9 +56,6 @@ extern Float CorrectShadingNormal(const SurfaceInteraction &isect,
                                   const Vector3f &wo, const Vector3f &wi,
                                   TransportMode mode);
 
-/// Path Extractor forward declaration
-class PathExtractorContainer;
-
 // EndpointInteraction Declarations
 struct EndpointInteraction : Interaction {
     union {
