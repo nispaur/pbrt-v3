@@ -215,7 +215,7 @@ class NormalExtractor : public ExtractorFunc {
 
 class ZContainer : public Container {
   public:
-    ZContainer(const Point2f &pFilm) : p(pFilm) {};
+    ZContainer(const Point2f &pFilm, Float znear, Float zfar) : p(pFilm), zfar(zfar), znear(znear) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &scene);
     void ReportData(const SurfaceInteraction &isect);
@@ -223,16 +223,24 @@ class ZContainer : public Container {
 
   private:
     const Point2f p;
-    Bounds3f wbounds;
+    const Float znear;
+    const Float zfar;
+    Point3f rayorigin;
     Float distance;
     int depth;
 };
 
 class ZExtractor : public ExtractorFunc {
   public:
+    ZExtractor(Float znear, Float zfar) : znear(znear), zfar(zfar) {}
+
     std::shared_ptr<Container> GetNewContainer(const Point2f &p) const {
-      return std::shared_ptr<Container>(new ZContainer(p));
+      return std::shared_ptr<Container>(new ZContainer(p, znear, zfar));
     }
+
+  private:
+    const Float znear;
+    const Float zfar;
 };
 
 

@@ -33,23 +33,16 @@ std::shared_ptr<Container> NormalExtractor::GetNewContainer(const Point2f &p) co
 }
 
 void ZContainer::Init(const RayDifferential &r, int depth, const Scene &scene) {
-  wbounds = scene.WorldBound();
+  rayorigin = r.o;
   this->depth = depth;
 }
 
 void ZContainer::ReportData(const SurfaceInteraction &isect) {
-    // Find dominant component of the vector (closest to -1 knowing that we are in a left-handed coordinate system)
-    // z \in [-1; 0]
-    // TODO: find better method
-    int z_component = 0;
-    for(int i = 0; i < 2; ++i)
-      z_component = wbounds.pMax[i] <= wbounds.pMax[z_component] ? i : z_component;
-
-    const Float zfar = wbounds.pMax[z_component];
-    const Float znear = wbounds.pMin[z_component];
-
+    // TODO: compute zscale constant once in extractorfunc
+    const Float z = Vector3f(isect.p-rayorigin).Length();
     if(depth == 0) {
-        distance = (isect.p[z_component]-znear)/(zfar-znear);
+      const Float zscale = (zfar == znear) ? 1.f : znear / (znear - zfar);
+      distance = zfar == 0.f ? znear/z : (-zfar*zscale)*(1/z) + zscale;
     }
 }
 
@@ -105,7 +98,10 @@ Extractor *CreateZExtractor(const ParamSet &params, const Point2i &fullResolutio
   std::string filename = params.FindOneString("outputfile", "");
   if (filename == "") filename = "depth_" + imageFilename;
 
-  return new Extractor(new ZExtractor(), new Film(
+  Float znear = params.FindOneFloat("znear", 0.1f);
+  Float zfar = params.FindOneFloat("zfar", 10000.f);
+
+  return new Extractor(new ZExtractor(znear, zfar), new Film(
           fullResolution,
           Bounds2f(Point2f(0, 0), Point2f(1, 1)),
           std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())),
