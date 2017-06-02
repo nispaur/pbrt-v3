@@ -171,6 +171,14 @@ class Containers;
 class PathSubContainer;
 class Container;
 
+class PathOutput;
+class PathOutputTile;
+struct PathEntry {
+    std::vector<Point3<Float>> vertices;
+    std::vector<Normal3<Float>> normals;
+    std::string pathexpr;
+};
+
 // Path/BDPT Vertex forward declarations
 class Vertex;
 class EndpointInteraction;

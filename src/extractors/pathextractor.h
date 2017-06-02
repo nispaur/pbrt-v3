@@ -4,6 +4,7 @@
 #ifndef PBRT_EXTRACTOR_PATH_H
 #define PBRT_EXTRACTOR_PATH_H
 
+#include "extractors/pathoutput.h"
 #include <regex>
 #include "pbrt.h"
 #include "extractors/extractor.h"
@@ -118,6 +119,7 @@ class PathExtractorContainer : public Container {
     void ReportData(const Spectrum &L);
 
     Spectrum ToSample() const;
+    std::vector<PathEntry> GetPaths();
 
     void AddSplat(const Point2f &pSplat, Film *film);
 

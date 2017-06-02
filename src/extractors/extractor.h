@@ -5,7 +5,7 @@
 #ifndef PBRT_V3_EXTRACTOR_H
 #define PBRT_V3_EXTRACTOR_H
 
-
+#include "extractors/pathoutput.h"
 #include "reflection.h"
 #include "geometry.h"
 #include "film.h"
@@ -27,6 +27,8 @@ class Container {
     virtual void BuildPath(const Vertex *lightVertrices, const Vertex *cameraVertrices, int s, int t) {};
     virtual void AddSplat(const Point2f &pSplat, Film *film) {};
     virtual Spectrum ToSample() const = 0;
+    // FIXME: crappy solution
+    virtual std::vector<PathEntry> GetPaths() { return std::vector<PathEntry>(); };
 
     virtual ~Container() {}
 
@@ -42,10 +44,12 @@ class ExtractorFunc {
 // Extractor main class
 class Extractor {
   public:
-    Extractor(const ExtractorFunc *f, Film *film) : f(f), film(film) {};
+    Extractor(const ExtractorFunc *f, PathOutput *p) : f(f), p(p), film(nullptr) {};
+    Extractor(const ExtractorFunc *f, Film *film) : f(f), film(film), p(nullptr) {};
 
     const ExtractorFunc *f;
     Film *film;
+    PathOutput *p;
 };
 
 class Containers {
@@ -74,6 +78,12 @@ class Containers {
       return containers[id]->ToSample();
     }
 
+    std::shared_ptr<Container> &GetContainer(int id) {
+      CHECK_LT(id, containers.size());
+      return containers[id];
+    }
+
+
     // TODO: cleaner approach
     void AddSplats(int id, const Point2f &pSplat, Film *film) const {
       CHECK_LT(id, containers.size());
@@ -86,48 +96,34 @@ class Containers {
 
 // Extractor Manager
 
-class ExtractorTile {
-  public:
-
-  private:
-};
-
-class ExtractorFilm {
-  public:
-
-  private:
-};
-
-class ExtractorFilmTile {
-  public:
-
-    void AddSample(const Point2f &pFilm, std::unique_ptr<Container> container, Float sampleWeight = 1.f) {
-      tile->AddSample(pFilm, container->ToSample(), sampleWeight);
-    }
-
-    std::unique_ptr<FilmTile> GetTile() {
-      return std::move(tile);
-    }
-  private:
-    std::unique_ptr<FilmTile> tile;
-};
-
 class ExtractorTileManager {
   public:
 
     void Add(std::unique_ptr<FilmTile> tile) {
+      dispatchtable.push_back({0, filmtiles.size()});
       filmtiles.push_back(std::move(tile));
+    }
+
+    void Add(std::unique_ptr<PathOutputTile> tile) {
+      dispatchtable.push_back({1, pathtiles.size()});
+      pathtiles.push_back(std::move(tile));
     }
 
     void AddSamples(const Point2f &pFilm, std::unique_ptr<Containers> container, Float sampleWeight = 1.f);
 
-    std::unique_ptr<FilmTile> GetTile(int id) {
-      CHECK_LT(id, filmtiles.size());
-      return std::move(filmtiles[id]);
+
+    std::unique_ptr<PathOutputTile> GetPathTile(int id) {
+        return std::unique_ptr<PathOutputTile>(std::move(pathtiles[dispatchtable[id].second]));
+    }
+
+    std::unique_ptr<FilmTile> GetFilmTile(int id) {
+        return std::unique_ptr<FilmTile>(std::move(filmtiles[dispatchtable[id].second]));
     }
 
   private:
+    std::vector<std::pair<bool, int>> dispatchtable;
     std::vector<std::unique_ptr<FilmTile>> filmtiles;
+    std::vector<std::unique_ptr<PathOutputTile>> pathtiles;
 };
 
 class ExtractorManager {
@@ -135,6 +131,14 @@ class ExtractorManager {
     ExtractorManager() {};
 
     void Add(Extractor *extractor) {
+      if(extractor->film) {
+        dispatchtable.push_back({0, films.size()});
+        films.push_back(extractor->film);
+      } else {
+        dispatchtable.push_back({1, paths.size()});
+        paths.push_back(extractor->p);
+      }
+
       extractors.push_back(extractor);
     }
 
@@ -146,8 +150,10 @@ class ExtractorManager {
 
   private:
     std::vector<Extractor*> extractors;
+    std::vector<std::pair<bool, int>> dispatchtable;
+    std::vector<Film*> films;
+    std::vector<PathOutput*> paths;
 };
-
 
 // Albedo Extractor
 

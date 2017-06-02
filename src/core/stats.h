@@ -185,6 +185,9 @@ enum class Prof {
     ExtractorReport,
     PathExtractorRegexTest,
     PathExtractorBuildPath,
+    PathExtractorToPathSample,
+    MergePathTile,
+    AddPathSample,
     NumProfCategories
 };
 
@@ -243,6 +246,9 @@ static const char *ProfNames[] = {
     "Extractor::ReportValue()",
     "PathExtractor::isValidPath()",
     "PathExtractor::BuildPath()",
+    "PathExtractor::ToPathSample()",
+    "PathOutput::MergePathTile()",
+    "PathOutput::AddSample()",
 };
 
 static_assert((int)Prof::NumProfCategories ==

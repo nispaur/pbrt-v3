@@ -7,6 +7,7 @@
 #include "paramset.h"
 #include "interaction.h"
 #include "extractors/extractor.h"
+#include "extractors/pathoutput.h"
 #include "spectrum.h"
 
 namespace pbrt {
@@ -150,8 +151,11 @@ std::unique_ptr<Containers> ExtractorManager::GetNewContainer(const Point2f &p) 
 
 std::unique_ptr<ExtractorTileManager> ExtractorManager::GetNewExtractorTile(const Bounds2i &tileBounds) {
   ExtractorTileManager *exttile = new ExtractorTileManager();
-  for(Extractor *ext : extractors) {
-    exttile->Add(std::move(ext->film->GetFilmTile(tileBounds)));
+  for(uint i = 0; i < extractors.size(); ++i) {
+    if(dispatchtable[i].first)
+      exttile->Add(std::move(paths[dispatchtable[i].second]->GetPathTile()));
+    else
+      exttile->Add(std::move(films[dispatchtable[i].second]->GetFilmTile(tileBounds)));
   }
 
   return std::unique_ptr<ExtractorTileManager>(exttile);
@@ -159,28 +163,37 @@ std::unique_ptr<ExtractorTileManager> ExtractorManager::GetNewExtractorTile(cons
 
 void ExtractorManager::MergeTiles(std::unique_ptr<ExtractorTileManager> tiles) {
   for(uint i = 0; i < extractors.size(); ++i) {
-
-    extractors[i]->film->MergeFilmTile(std::move(tiles->GetTile(i)));
+    if(dispatchtable[i].first)
+      paths[dispatchtable[i].second]->MergePathTile(std::move(tiles->GetPathTile(i)));
+    else
+      films[dispatchtable[i].second]->MergeFilmTile(std::move(tiles->GetFilmTile(i)));
   }
 }
 
 void ExtractorManager::WriteOutput(Float splatScale) {
   // TODO: Generic output
   for(uint i = 0; i < extractors.size(); ++i) {
-    extractors[i]->film->WriteImage(splatScale);
+    if(dispatchtable[i].first)
+      paths[dispatchtable[i].second]->WriteFile();
+    else
+      films[dispatchtable[i].second]->WriteImage(splatScale);
   }
 }
 
 void ExtractorManager::AddSplats(const Point2f &pSplat, const Containers &containers) {
   for (uint i = 0; i < extractors.size(); ++i) {
-    containers.AddSplats(i, pSplat, extractors[i]->film);
+    if(!dispatchtable[i].first)
+      containers.AddSplats(i, pSplat, films[dispatchtable[i].second]);
   }
 }
 
 void ExtractorTileManager::AddSamples(const Point2f &pFilm,
                                       std::unique_ptr<Containers> containers, Float sampleWeight) {
-  for (uint i = 0; i < filmtiles.size(); ++i) {
-    filmtiles[i]->AddSample(pFilm, containers->ToSample(i), sampleWeight);
+  for (uint i = 0; i < dispatchtable.size(); ++i) {
+    if(dispatchtable[i].first)
+      pathtiles[dispatchtable[i].second]->AddSample(pFilm, containers->GetContainer(i));
+    else
+      filmtiles[dispatchtable[i].second]->AddSample(pFilm, containers->ToSample(i), sampleWeight);
   }
 }
 

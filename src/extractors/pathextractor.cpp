@@ -109,6 +109,29 @@ void PathExtractorContainer::ReportData(BxDFType T) {
   current_path.vertices.back().type = (T & BSDF_SPECULAR) != 0 ? VertexInteraction::Specular : VertexInteraction::Diffuse;
 }
 
+std::vector<PathEntry> PathExtractorContainer::GetPaths() {
+  ProfilePhase p(Prof::PathExtractorToPathSample);
+  std::vector<PathEntry> entries;
+
+  std::for_each(paths.cbegin(), paths.cend(),
+                [&](const std::pair<std::pair<int,int>,Path> &kv) {
+                    const Path &p = kv.second;
+                    PathEntry entry;
+
+                    if((entry.pathexpr = p.GetPathExpression()) == "")
+                      return;
+
+                    std::for_each(p.vertices.begin(), p.vertices.end(), [&](const PathVertex &v) {
+                        entry.vertices.push_back(v.p);
+                        entry.normals.push_back(v.n);
+                    });
+
+                    entries.push_back(entry);
+                } );
+
+  return entries;
+}
+
 
 bool Path::isValidPath(const std::regex &pathPattern) const {
   ProfilePhase p(Prof::PathExtractorRegexTest);
@@ -140,11 +163,14 @@ Extractor *CreatePathExtractor(const ParamSet &params, const Point2i &fullResolu
 
   std::string regex = params.FindOneString("regex", "");
 
-  return new Extractor(new PathExtractor(regex), new Film(
+ /*
+  * return new Extractor(new PathExtractor(regex), new Film(
           fullResolution,
           Bounds2f(Point2f(0, 0), Point2f(1, 1)),
           std::unique_ptr<Filter>(CreateBoxFilter(ParamSet())),
           diagonal, filename, 1.f));
+*/
+  return new Extractor(new PathExtractor(regex), new PathOutput(filename));
 }
 
 }
