@@ -173,7 +173,7 @@ struct RenderOptions {
     std::string CameraName = "perspective";
     ParamSet CameraParams;
     TransformSet CameraToWorld;
-    std::map<std::string, ParamSet> extractors;
+    std::vector<std::pair<std::string, ParamSet>> extractors;
     std::map<std::string, std::shared_ptr<Medium>> namedMedia;
     std::vector<std::shared_ptr<Light>> lights;
     std::vector<std::shared_ptr<Primitive>> primitives;
@@ -723,7 +723,7 @@ Extractor *MakeExtractor(const std::string &ExtractorName,
     return extractor;
 }
 
-std::shared_ptr<ExtractorManager> MakeExtractorManager(std::map<std::string, ParamSet> extractors, const Film &film) {
+std::shared_ptr<ExtractorManager> MakeExtractorManager(std::vector<std::pair<std::string, ParamSet>> extractors, const Film &film) {
     ExtractorManager *extractorManager = new ExtractorManager();
 
     for(const auto& kv : extractors) {
@@ -990,7 +990,7 @@ void pbrtCamera(const std::string &name, const ParamSet &params) {
 
 void pbrtExtractor(const std::string &name, const ParamSet &params) {
   VERIFY_OPTIONS("Extractor");
-  renderOptions->extractors[name] = params;
+  renderOptions->extractors.push_back({name, params});
   if (PbrtOptions.cat || PbrtOptions.toPly) {
     printf("%*sExtractor \"%s\" ", catIndentCount, "", name.c_str());
     params.Print(catIndentCount);

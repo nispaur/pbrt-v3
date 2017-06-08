@@ -6,6 +6,7 @@
 #define PBRT_V3_EXTRACTOR_H
 
 #include "extractors/pathoutput.h"
+#include "extractors/pathio.h"
 #include "reflection.h"
 #include "geometry.h"
 #include "film.h"
@@ -23,12 +24,12 @@ class Container {
     virtual void ReportData(const SurfaceInteraction &isect) {};
     virtual void ReportData(const RayDifferential &r) {};
     virtual void ReportData(const Spectrum &L) {};
-    virtual void ReportData(BxDFType T) {};
+    virtual void ReportData(const std::tuple<Spectrum, Float, Float, BxDFType> &bsdf) {};
     virtual void BuildPath(const Vertex *lightVertrices, const Vertex *cameraVertrices, int s, int t) {};
     virtual void AddSplat(const Point2f &pSplat, Film *film) {};
     virtual Spectrum ToSample() const = 0;
     // FIXME: crappy solution
-    virtual std::vector<PathEntry> GetPaths() { return std::vector<PathEntry>(); };
+    virtual std::vector<path_entry> GetPaths() { return std::vector<path_entry>(); };
 
     virtual ~Container() {}
 

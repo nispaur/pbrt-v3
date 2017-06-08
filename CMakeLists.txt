@@ -306,6 +306,11 @@ ADD_EXECUTABLE ( cyhair2pbrt
   )
 ADD_SANITIZERS ( cyhair2pbrt )
 
+ADD_EXECUTABLE ( pathtool
+        src/tools/pathtool.cpp
+        )
+ADD_SANITIZERS ( pathtool )
+
 TARGET_LINK_LIBRARIES ( bsdftest
   pbrt
   ${CMAKE_THREAD_LIBS_INIT}
@@ -319,6 +324,17 @@ TARGET_LINK_LIBRARIES ( imgtool
   ${OPENEXR_LIBS}
   glog
   )
+
+SET_TARGET_PROPERTIES ( pathtool
+        PROPERTIES
+        OUTPUT_NAME pathtool
+        )
+
+TARGET_LINK_LIBRARIES ( pathtool
+        pbrt
+        ${CMAKE_THREAD_LIBS_INIT}
+        glog
+        )
 
 # Unit test
 
@@ -349,6 +365,7 @@ INSTALL ( TARGETS
   pbrt_exe
   bsdftest
   imgtool
+  pathtool
   obj2pbrt
   cyhair2pbrt
   DESTINATION

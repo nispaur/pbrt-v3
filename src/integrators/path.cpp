@@ -111,8 +111,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
         isect.ComputeScatteringFunctions(ray, arena, true);
 
         // Report intersection to container
-        if(foundIntersection)
-          container.ReportData(isect);
+        container.ReportData(isect);
 
         if (!isect.bsdf) {
             VLOG(2) << "Skipping intersection due to null bsdf";
@@ -182,8 +181,8 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
             ray = pi.SpawnRay(wi);
         }
 
-        // Report Intersection type (diffuse/specular)
-        container.ReportData(flags);
+        // Collect BSDF spectrum, pdf, rev_pdf and type
+        container.ReportData(std::make_tuple(f, pdf, isect.bsdf->Pdf(wi, wo), flags));
 
         // Possibly terminate the path with Russian roulette.
         // Factor out radiance scaling due to refraction in rrBeta.

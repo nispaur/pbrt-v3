@@ -14,7 +14,7 @@ namespace pbrt {
 void PathOutputTile::AddSample(const Point2f &pFilm, std::shared_ptr<Container> container) {
   VLOG(2) << "New path sample";
   ProfilePhase p(Prof::AddPathSample);
-  std::vector<PathEntry> entries = container->GetPaths();
+  std::vector<path_entry> entries = container->GetPaths();
   tilepaths.insert(tilepaths.end(), entries.begin(), entries.end());
 }
 
@@ -28,33 +28,38 @@ void PathOutput::MergePathTile(std::unique_ptr<PathOutputTile> tile) {
   ProfilePhase _(Prof::MergePathTile);
   std::lock_guard<std::mutex> lock(mutex);
 
+  // Path addition during rendering disabled (currently: slowing down rendering in text mode due to formatting)
+  // AppendPaths(tile->tilepaths);
   paths.insert(paths.end(), tile->tilepaths.begin(), tile->tilepaths.end());
 }
 
-static bool WritePathBinary(const std::string &filename, const std::vector<PathEntry> &entries) {
-  return 1;
-}
-
-static bool WritePathTextFile(const std::string &filename, const std::vector<PathEntry> &entries) {
-  std::basic_ofstream<char> f(filename);
-
+void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binarymode) {
+  ProfilePhase p(Prof::PathWriteOutput);
+  int avg = 0;
   f << "Path file; n = " << entries.size() << std::endl;
-  for(const PathEntry &entry: entries) {
-    f << "path expr [ \"" + entry.pathexpr + "\" ] ";
-    f << "vertices [ ";
-    std::for_each(entry.vertices.begin(), entry.vertices.end(),
-                  [&](const Point3f &p) { f << StringPrintf("[ %f, %f, %f ] ", p.x, p.y, p.z); });
-    f << " ] normals [ ";
-    std::for_each(entry.normals.begin(), entry.normals.end(), [&](const Normal3f &n) { f << n << " "; });
-    f << "]" << std::endl;
+
+  for(const path_entry &entry: entries) {
+    avg += entry.vertices.size();
+    f << "Path:";
+    if(!binarymode) {
+      std::ostringstream str;
+      str << entry;
+      f << str.str() << "\n";
+    } else {
+      f << entry;
+    }
   }
 
+  f << "Average path length: ";
+  f << ((!entries.size()) ? 0 : avg/entries.size()) << std::endl;
   f.close();
-  return 0;
+
 }
 
 void PathOutput::WriteFile() {
-    WritePathTextFile(filename, paths);
+    ProfilePhase p(Prof::PathWriteOutput);
+    // Check extension for binary/text mode
+    AppendPaths(paths, !HasExtension(filename, ".txtdump"));
 }
 
 PathOutput *CreatePathOutput(const ParamSet &params) {

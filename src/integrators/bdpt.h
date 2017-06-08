@@ -160,6 +160,7 @@ struct Vertex {
     // Vertex Public Data
     VertexType type;
     Spectrum beta;
+    Spectrum bsdf_f;
 #ifdef PBRT_IS_MSVC2013
     struct {
 #else

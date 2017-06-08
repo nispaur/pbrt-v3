@@ -206,6 +206,7 @@ int RandomWalk(const Scene &scene, RayDifferential ray, Sampler &sampler,
                 vertex.delta = true;
                 pdfRev = pdfFwd = 0;
             }
+            vertex.bsdf_f = f * CorrectShadingNormal(isect, wo, wi, mode);
             beta *= CorrectShadingNormal(isect, wo, wi, mode);
             VLOG(2) << "Random walk beta after shading normal correction " << beta;
             ray = isect.SpawnRay(wi);

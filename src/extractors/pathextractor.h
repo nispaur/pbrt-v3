@@ -8,6 +8,7 @@
 #include <regex>
 #include "pbrt.h"
 #include "extractors/extractor.h"
+#include "extractors/pathio.h"
 
 namespace pbrt {
 
@@ -22,6 +23,10 @@ struct PathVertex {
     VertexInteraction type;
     Point3f p;
     Normal3f n;
+    Spectrum f;    // BSDF spectrum
+    Float pdf;
+    Float pdf_rev;
+
     /*
     union {
         SurfaceInteraction si;
@@ -30,11 +35,10 @@ struct PathVertex {
     };
     */
 
-    PathVertex(const Point3f &p, VertexInteraction type = VertexInteraction::Undef) : p(p), type(type) {}
-    PathVertex(const Interaction &isect, VertexInteraction type = VertexInteraction::Undef) : type(type) {
-      p = isect.p;
-      n = isect.n;
-    }
+    PathVertex(const Point3f &p,  VertexInteraction type = VertexInteraction::Undef) :
+            p(p), type(type) {}
+    PathVertex(const Interaction &isect, Float pdf, Float pdfRev, Spectrum f, VertexInteraction type = VertexInteraction::Undef) :
+            pdf(pdf), pdf_rev(pdfRev), p(isect.p), n(isect.n), f(f), type(type) {}
 
     static inline PathVertex FromBDPTVertex(const Vertex &v);
 
@@ -108,18 +112,19 @@ struct Path {
 
 class PathExtractorContainer : public Container {
   public:
-    PathExtractorContainer(const Point2f &pFilm, const std::regex &r) :
+    PathExtractorContainer(const Point2f &pFilm, const std::regex &r, const std::string &regexpr) :
             pFilm(pFilm),
-            regex(r) {};
+            regex(r),
+            regexpr(regexpr) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &Scene);
     void ReportData(const SurfaceInteraction &isect);
-    void ReportData(BxDFType T);
+    void ReportData(const std::tuple<Spectrum, Float, Float, BxDFType> &bsdf);
 
     void ReportData(const Spectrum &L);
 
     Spectrum ToSample() const;
-    std::vector<PathEntry> GetPaths();
+    std::vector<path_entry> GetPaths();
 
     void AddSplat(const Point2f &pSplat, Film *film);
 
@@ -129,8 +134,10 @@ class PathExtractorContainer : public Container {
   private:
     MemoryArena arena;
     const Point2f pFilm;
+    const std::string regexpr;
     const std::regex regex;
     bool path_integrator = false;
+    Interaction i; // Temporary storage for interaction collection
     // path state
     int s_state, t_state;
     Path current_path;
@@ -142,18 +149,19 @@ class PathExtractorContainer : public Container {
 class PathExtractor : public ExtractorFunc {
   public:
     PathExtractor(const std::string &pathExpression) :
-      r(std::regex(pathExpression, std::regex::optimize)) {};
+      r(std::regex(pathExpression, std::regex::optimize)), expr(pathExpression) {};
 
     std::shared_ptr<Container> GetNewContainer(const Point2f &p) const {
-      return std::shared_ptr<Container>(new PathExtractorContainer(p, r));
+      return std::shared_ptr<Container>(new PathExtractorContainer(p, r, expr));
     }
 
     std::unique_ptr<PathExtractorContainer> GetNewPathExtractorContainer(const Point2f &p) const {
-      return std::unique_ptr<PathExtractorContainer>(new PathExtractorContainer(p, r));
+      return std::unique_ptr<PathExtractorContainer>(new PathExtractorContainer(p, r, expr));
     }
 
   private:
     const std::regex r;
+    const std::string expr;
 };
 
 
