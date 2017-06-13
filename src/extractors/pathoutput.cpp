@@ -40,8 +40,8 @@ void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binary
 
   for(const path_entry &entry: entries) {
     avg += entry.vertices.size();
-    f << "Path:";
     if(!binarymode) {
+      f << "Path:";
       std::ostringstream str;
       str << entry;
       f << str.str() << "\n";

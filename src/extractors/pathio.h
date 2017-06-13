@@ -49,8 +49,8 @@ inline std::istream &operator>>(std::istream &is, vertex_entry &v) {
 }
 
 inline std::istream &operator>>(std::istream &is, path_entry &entry) {
-    is >> entry.regexlen;
-    is >> entry.pathlen;
+    is.read((char*)&entry.regexlen, sizeof(uint32_t));
+    is.read((char*)&entry.pathlen, sizeof(uint32_t));
     entry.regex.reserve(entry.regexlen);
     entry.path.reserve(entry.pathlen);
     is.read(&entry.regex[0], entry.regexlen);
@@ -67,11 +67,11 @@ inline std::ostream &operator<<(std::ostream &os, const vertex_entry &v) {
 }
 
 inline std::ostream &operator<<(std::ostream &os, const path_entry &entry) {
-  os << entry.regexlen;
-  os << entry.pathlen;
+  os.write((char*)(&entry.regexlen), sizeof(uint32_t));
+  os.write((char*)(&entry.pathlen), sizeof(uint32_t));
   os.write(entry.regex.c_str(), entry.regexlen);
   os.write(entry.path.c_str(), entry.pathlen);
-  os.write((char*)&entry.vertices[0], sizeof(vertex_entry) * entry.pathlen);
+  os.write((char*)(&entry.vertices[0]), sizeof(vertex_entry) * entry.pathlen);
 
   return os;
 }

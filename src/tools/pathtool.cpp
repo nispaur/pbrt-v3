@@ -11,6 +11,7 @@
 #include <vector>
 #include "pbrt.h"
 #include <fstream>
+#include "tools/pathtool.h"
 #include <sstream>
 
 namespace pbrt {
@@ -20,6 +21,7 @@ void bin_to_txt(int argc, char *argv[]);
 void path_grep(int argc, char *argv[]);
 void print_stats(int argc, char *argv[]);
 void align_check(int argc, char *argv[]);
+void mmap_test(int argc, char *argv[]);
 
 static void usage(const char *msg = nullptr, ...) {
   if (msg) {
@@ -182,7 +184,28 @@ void bin_to_txt(int argc, char *argv[]) {
   fclose(fo);
 }
 
+
+
+
+} // namespace pbrt
+
+
+void mmap_test(int argc, char* argv[]) {
+  std::string filename(argv[2]);
+  PathFile p(filename);
+
+  for (const path_entry &paths : p) {
+    std::cout << "Path length " << paths.pathlen << std::endl;
+  }
+
+  std::cout << "Average path length: " << p.average_length() << std::endl;
+
+  std::string test;
+  std::cin >> test;
 }
+
+
+
 
 
 int main(int argc, char* argv[]) {
@@ -196,6 +219,8 @@ int main(int argc, char* argv[]) {
     pbrt::bin_to_txt(argc, argv);
   } else if(!strcmp(argv[1], "aligncheck")) {
     pbrt::align_check(argc, argv);
+  } else if (!strcmp(argv[1], "mmaptest")) {
+    mmap_test(argc, argv);
   } else {
     pbrt::usage("");
   }
