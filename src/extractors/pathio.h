@@ -37,6 +37,12 @@ struct path_entry {
     std::string path;                           // pathlen o
     std::vector<vertex_entry> vertices;         // 48 * pathlen o
     // = 8 + regexlen + (49 * pathlen) bytes
+
+    // Copy constructor
+    path_entry() {}
+    path_entry(const path_entry& e) : regexlen(e.regexlen), pathlen(e.pathlen), regex(e.regex), path(e.path),
+                                      vertices(e.vertices) {}
+
 };
 
 // Move to path_entry ?

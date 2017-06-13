@@ -30,7 +30,7 @@ void PathOutput::MergePathTile(std::unique_ptr<PathOutputTile> tile) {
 
   // Path addition during rendering disabled (currently: slowing down rendering in text mode due to formatting)
   // AppendPaths(tile->tilepaths);
-  paths.insert(paths.end(), tile->tilepaths.begin(), tile->tilepaths.end());
+  // paths.insert(paths.end(), tile->tilepaths.begin(), tile->tilepaths.end());
 }
 
 void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binarymode) {

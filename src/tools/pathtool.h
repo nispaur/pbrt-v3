@@ -17,6 +17,9 @@
 #include <cstring>
 #include <cerrno>
 
+#define MAP_HUGETLB	0x40000		/* Create huge page mapping.  */
+#define MAP_POPULATE	0x08000		/* Populate (prefault) pagetables.  */
+#define MAP_NORESERVE	0x04000		/* Don't check for reservations.  */
 
 // Regex match
 #include <regex>
@@ -41,32 +44,27 @@ struct path_entry {
     vertex_entry *vertices;         // 48 * pathlen o
     // = 8 + regexlen + (49 * pathlen) bytes
 
-
+/*
     // Default constructor
     path_entry() : regexlen(0), pathlen(0) {}
 
     // Copy constructor
     path_entry(const path_entry& e) : regexlen(e.regexlen), pathlen(e.pathlen) {
-      regex = new char[regexlen];
-      path = new char[pathlen];
-      vertices = new vertex_entry[pathlen];
-      std::copy(e.regex, e.regex+regexlen, regex);
-      std::copy(e.path, e.path+pathlen, path);
-      std::copy(e.vertices, e.vertices+pathlen, vertices);
+      regex = new char[e.regexlen];
+      path = new char[e.pathlen];
+      vertices = new vertex_entry[e.pathlen];
+      std::copy(e.regex, e.regex+e.regexlen, regex);
+      std::copy(e.path, e.path+e.pathlen, path);
+      std::copy(e.vertices, e.vertices+e.pathlen, vertices);
     }
-
-    ~path_entry() {
-      delete[] regex;
-      delete[] path;
-      delete[] vertices;
-    }
+*/
 };
 
 class PathFile {
   public:
     // Container typedefs
 
-    template <typename T = path_entry, typename A = std::allocator<T>>
+    template <typename T = pbrt::path_entry, typename A = std::allocator<T>>
     class pathconst_iterator {
       public:
         typedef std::size_t size_type;
@@ -99,20 +97,20 @@ class PathFile {
         bool operator>=(const pathconst_iterator &it) const { return cpos >= it.cpos; }
 
         pathconst_iterator& operator++() {
-          cpos = (path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
+          cpos = (pbrt::path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
           return *this;
         }
 
         pathconst_iterator operator++(int n) {
           for (int i = 0; i < n; ++i) {
-            cpos = (path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
+            cpos = (pbrt::path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
           }
           return *this;
         }
 
         pathconst_iterator& operator+=(size_type n) {
           for (int i = 0; i < n; ++i) {
-            cpos = (path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
+            cpos = (pbrt::path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
           }
           return *this;
         }
@@ -126,8 +124,16 @@ class PathFile {
         // const_iterator operator-(size_type) const; //optional
         // difference_type operator-(const_iterator) const; //optional
 
-        const_reference operator*() const {
-          return *cpos;
+        const_reference operator*()  {
+          cpath.regexlen = cpos->regexlen;
+          cpath.pathlen = cpos->pathlen;
+          cpath.regex.resize(cpath.regexlen);
+          memcpy((void*)(cpath.regex.data()), (void*)(cpos + 8), cpath.regexlen);
+          cpath.path.resize(cpath.pathlen);
+          memcpy((void*)(cpath.path.data()), (void*)(cpos + 8 + cpath.regexlen), cpath.pathlen);
+          cpath.vertices.resize(cpath.pathlen);
+          memcpy((void*)cpath.vertices.data(), (void*)(cpos+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
+          return cpath;
         }
         const_pointer operator->() const {
           return cpos;
@@ -135,18 +141,21 @@ class PathFile {
 
       private:
         // Iterator attrs
+        //pbrt::path_entry cpath;
         void *pathfile;
-        path_entry *cpos; // Current path position in file
+        pbrt::path_entry *cpos; // Current path position in file
+        pbrt::path_entry cpath;
+
     };
 
     // Container typedefs
     typedef std::size_t size_type;
-    typedef PathFile::pathconst_iterator<path_entry> const_iterator;
+    typedef PathFile::pathconst_iterator<pbrt::path_entry> const_iterator;
 
     PathFile(const std::string &filename) : fd(open(filename.c_str(), O_RDONLY)) {
       fstat(fd, &stats);
       std::cout << "Executing mmap with args: " << stats.st_size << " fd " << fd << std::endl;
-      if((filemap = (int8_t*)mmap64(nullptr, stats.st_size, 0x1, 0x0C001, fd, 0)) == (int8_t *)(-1)) {
+      if((filemap = (int8_t*)mmap64(nullptr, stats.st_size, 0x1, 0xC001, fd, 0)) == (int8_t *)(-1)) { // 0x0C001
         std::cerr << "mmap error "  << std::strerror(errno) << std::endl;
         exit(EXIT_FAILURE);
       }
@@ -161,6 +170,7 @@ class PathFile {
 
       find_lastpath();
       int avg_len = average_length();
+      std::cout << "Average path length: " << avg_len << std::endl;
     }
 
     // iterator methods
@@ -178,7 +188,7 @@ class PathFile {
     int average_length() const {
       int totallength = 0;
       int pcount = 0;
-      for(const path_entry &p : *this) {
+      for(const pbrt::path_entry &p : *this) {
         totallength += p.pathlen;
         ++pcount;
       }
@@ -245,13 +255,13 @@ static bool isLength(const path_entry &path, int length) {
 }
 
 // Regex match
-static bool regMatch(const path_entry &path, const std::string &regexstr) {
+static bool regMatch(const pbrt::path_entry &path, const std::string &regexstr) {
   std::regex reg(regexstr);
-  return strcmp(regexstr.c_str(), path.regex) | std::regex_match(std::string(path.path, path.pathlen), reg);
+  return strcmp(regexstr.c_str(), path.regex.c_str()) | std::regex_match(std::string(path.path, path.pathlen), reg);
 }
 
 // Vertices around a sphere of radius r
-static bool sphereSearch(const path_entry &path, float r, float pos[3]) {
+static bool sphereSearch(const pbrt::path_entry &path, float r, float pos[3]) {
   for (int i = 0; i < path.pathlen; ++i) {
     float v[3] = {path.vertices[i].v[0], path.vertices[i].v[1], path.vertices[i].v[2]};
     float sum = 0.f;
