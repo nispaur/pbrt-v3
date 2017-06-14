@@ -13,6 +13,8 @@
 #include <fstream>
 #include "tools/pathtool.h"
 #include <sstream>
+#include <fstream>
+#include <cstdarg>
 
 namespace pbrt {
 
@@ -196,8 +198,19 @@ void bin_to_txt(int argc, char *argv[]) {
   fclose(fo);
 }
 
+// PathFile version of cat
+void bin_to_txt2(int argc, char *argv[]) {
+  std::string filename(argv[3]);
+  std::ofstream out(argv[2]);
 
+  PathFile file(filename);
 
+  for(const pbrt::path_entry &p : file) {
+    std::ostringstream str;
+    str << p;
+    out << str.str() << std::endl;
+  }
+}
 
 } // namespace pbrt
 
@@ -217,6 +230,10 @@ void mmap_test(int argc, char* argv[]) {
 }
 
 void filter_by_length(int argc, char* argv[]) {
+  if(argc != 4) {
+    pbrt::usage();
+  }
+
   // TODO: except/file name checks
   int length = std::atoi(argv[2]);
   std::string filename(argv[3]);
@@ -231,10 +248,15 @@ void filter_by_length(int argc, char* argv[]) {
 }
 
 void filter_by_location(int argc, char* argv[]) {
+  if(argc != 7) {
+    pbrt::usage();
+  }
+
   float radius = std::stof(argv[5]);
   float pos[3] = {std::stof(argv[2]), std::stof(argv[3]), std::stof(argv[4])};
   std::string filename(argv[6]);
 
+  std::cout << "Matching paths passing sphere of center " << pos[0] << ", " << pos[1] << ", " << pos[2] << " and radius " << radius << std::endl;
   PathFile file(filename);
   std::vector<pbrt::path_entry> resultpaths;
   std::copy_if(file.begin(), file.end(), std::back_inserter(resultpaths),
@@ -244,13 +266,29 @@ void filter_by_location(int argc, char* argv[]) {
 }
 
 void filter_by_regex(int argc, char* argv[]) {
+  if(argc != 4) {
+    pbrt::usage();
+  }
+
   std::string filename(argv[3]);
   std::string regex(argv[2]);
 
   PathFile file(filename);
   std::vector<pbrt::path_entry> resultpaths;
   std::copy_if(file.begin(), file.end(), std::back_inserter(resultpaths),
-               [&](const pbrt::path_entry &p) { return regMatch(p, regex); } );
+               [&](const pbrt::path_entry &p)
+               {
+                   /*
+                   if(regMatch(p, regex)) {
+                     std::cout << "Matching path regex = " << p.regex << "; expr = " << p.path << std::endl;
+                     return true;
+                   } else {
+                     std::cout << "Unmatched path regex = " << p.regex << "; expr = " << p.path << std::endl;
+                     return false;
+                   }
+                   */
+                   return regMatch(p, regex);
+               } );
 
   std::cout << "Number of paths matching : " << resultpaths.size() << std::endl;
 
@@ -276,6 +314,8 @@ int main(int argc, char* argv[]) {
     filter_by_regex(argc, argv);
   } else if (!strcmp(argv[1], "spherefilter")) {
     filter_by_location(argc, argv);
+  } else if (!strcmp(argv[1], "cat2")) {
+    pbrt::bin_to_txt2(argc, argv);
   } else {
     pbrt::usage("");
   }

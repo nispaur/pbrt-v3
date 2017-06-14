@@ -128,11 +128,11 @@ class PathFile {
           cpath.regexlen = cpos->regexlen;
           cpath.pathlen = cpos->pathlen;
           cpath.regex.resize(cpath.regexlen);
-          memcpy((void*)(cpath.regex.data()), (void*)(cpos + 8), cpath.regexlen);
+          memcpy((void*)(cpath.regex.data()), (void*)((char*)(cpos) + 8), cpath.regexlen);
           cpath.path.resize(cpath.pathlen);
-          memcpy((void*)(cpath.path.data()), (void*)(cpos + 8 + cpath.regexlen), cpath.pathlen);
+          memcpy((void*)(cpath.path.data()), (void*)((char*)(cpos) + 8 + cpath.regexlen), cpath.pathlen);
           cpath.vertices.resize(cpath.pathlen);
-          memcpy((void*)cpath.vertices.data(), (void*)(cpos+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
+          memcpy((void*)cpath.vertices.data(), (void*)((char*)(cpos)+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
           return cpath;
         }
         const_pointer operator->() const {
@@ -257,7 +257,7 @@ static bool isLength(const path_entry &path, int length) {
 // Regex match
 static bool regMatch(const pbrt::path_entry &path, const std::string &regexstr) {
   std::regex reg(regexstr);
-  return strcmp(regexstr.c_str(), path.regex.c_str()) | std::regex_match(std::string(path.path, path.pathlen), reg);
+  return !strcmp(regexstr.c_str(), path.regex.c_str()) | std::regex_match(path.path, reg);
 }
 
 // Vertices around a sphere of radius r
@@ -266,7 +266,7 @@ static bool sphereSearch(const pbrt::path_entry &path, float r, float pos[3]) {
     float v[3] = {path.vertices[i].v[0], path.vertices[i].v[1], path.vertices[i].v[2]};
     float sum = 0.f;
     bool boundcheck = true;
-    for (int j = 0; j < 2; ++j) {
+    for (int j = 0; j < 3; ++j) {
       sum += (v[i] - pos[i])*(v[i] - pos[i]);
     }
 
