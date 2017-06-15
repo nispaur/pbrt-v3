@@ -311,6 +311,11 @@ ADD_EXECUTABLE ( pathtool
         )
 ADD_SANITIZERS ( pathtool )
 
+ADD_EXECUTABLE ( histtool
+        src/tools/histtool.cpp
+        )
+ADD_SANITIZERS ( histtool )
+
 TARGET_LINK_LIBRARIES ( bsdftest
   pbrt
   ${CMAKE_THREAD_LIBS_INIT}
@@ -331,6 +336,17 @@ SET_TARGET_PROPERTIES ( pathtool
         )
 
 TARGET_LINK_LIBRARIES ( pathtool
+        pbrt
+        ${CMAKE_THREAD_LIBS_INIT}
+        glog
+        )
+
+SET_TARGET_PROPERTIES ( histtool
+        PROPERTIES
+        OUTPUT_NAME histtool
+        )
+
+TARGET_LINK_LIBRARIES ( histtool
         pbrt
         ${CMAKE_THREAD_LIBS_INIT}
         glog

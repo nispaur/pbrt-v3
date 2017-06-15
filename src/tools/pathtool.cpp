@@ -224,9 +224,6 @@ void mmap_test(int argc, char* argv[]) {
   }
 
   std::cout << "Average path length: " << p.average_length() << std::endl;
-
-  std::string test;
-  std::cin >> test;
 }
 
 void filter_by_length(int argc, char* argv[]) {
