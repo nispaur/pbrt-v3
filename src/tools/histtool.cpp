@@ -11,6 +11,7 @@
 #include <string>
 #include <iomanip>
 #include <cstdarg>
+#include <set>
 
 /**
  * Input values file structure
@@ -66,41 +67,17 @@ makehistogram option:
   exit(1);
 }
 
-
-template <typename T>
-T getField(const pbrt::path_entry &p, const EType &e) {
-  switch(e) {
-    case RLength:
-      return p.regexlen;
-    case ELength:
-      return p.pathlen;
-    default:
-      return 0;
-  }
-}
-
-ssize_t FindIf(const EType &e, const std::vector<int> values, const pbrt::path_entry &p) {
-  int field = getField<int>(p, e);
-  auto it = std::find(values.begin(), values.end(), field);
-  return std::distance(values.begin(), it);
-}
-
 ssize_t path_select(const std::vector<std::string> &values, const pbrt::path_entry &p) {
-  auto it = std::find(values.begin(), values.end(), p.path);
-  return std::distance(values.begin(), it);
+  return std::distance(values.begin(), std::find(values.begin(), values.end(), p.path));
 }
 
 ssize_t reg_select(const std::vector<std::string> &values, const pbrt::path_entry &p) {
-  auto it = std::find_if(values.begin(), values.end(), [&](const std::string &regex) {
-      std::regex r(regex);
-      return std::regex_match(p.path, r);
-  });
-  return std::distance(values.begin(), it);
+  return std::distance(values.begin(), std::find_if(values.begin(), values.end(),
+                                    [&](const std::string &r) { return std::regex_match(p.path, std::regex(r)); }));
 }
 
 ssize_t length_select(const std::vector<int> &values, const pbrt::path_entry &p) {
-  auto it = std::find(values.begin(), values.end(), p.pathlen);
-  return std::distance(values.begin(), it);
+  return std::distance(values.begin(), std::find(values.begin(), values.end(), p.pathlen));
 }
 
 ssize_t lengthival_select(const std::vector<int> &values, const pbrt::path_entry &p) {
@@ -108,8 +85,34 @@ ssize_t lengthival_select(const std::vector<int> &values, const pbrt::path_entry
     if(p.pathlen >= *it && p.pathlen < *(it+1))
       return std::distance(values.begin(), it);
   }
-  return std::distance(values.begin(), values.end()); // = values.size()
+  return values.size(); // If out of bounds
 }
+
+// Populate methods
+void val_populate(std::vector<int> &values, const PathFile &file, const EType &e) {
+  std::set<int> valueset;
+  for(const pbrt::path_entry &p: file) {
+    if(e == EType::ELengthIval || e == EType::ELength) {
+      valueset.insert(int(p.pathlen));
+    }
+  }
+  values.assign(valueset.begin(), valueset.end());
+  std::sort(values.begin(), values.end());
+}
+
+void val_populate(std::vector<std::string> &values, const PathFile &file, const EType &e) {
+  std::set<std::string> valueset;
+  for(const pbrt::path_entry &p: file) {
+    if (e == EType::RMatch) {
+      valueset.insert(p.regex);
+    } else if (e == EType::Expr) {
+      valueset.insert(p.path);
+    }
+  }
+  values.assign(valueset.begin(), valueset.end());
+}
+
+// Dispatcher
 
 void fun_dispatcher(const EType &e, std::function<ssize_t(const std::vector<std::string>&, const pbrt::path_entry&)> &fun) {
   if (e == EType::RMatch) {
@@ -128,11 +131,17 @@ void fun_dispatcher(const EType &e, std::function<ssize_t(const std::vector<int>
 }
 
 template <typename T>
-std::vector<int> HistogramGenerator(const EType &e, const std::vector<T> values, const std::string &pathfile) {
+std::vector<int> HistogramGenerator(const EType &e, std::vector<T> &values, const PathFile &file) {
   std::vector<int> hist;
+  // If no values, populate w/ file data
+  if(values.empty()) {
+    std::cout << "No values provided, populating from path file" << std::endl;
+    val_populate(values, file, e);
+    std::cout << "Done. " << values.size() << " distinct values found." << std::endl;
+  }
+
   hist.resize(values.size() + 1);
   std::fill(hist.begin(), hist.end(), 0);
-  PathFile file(pathfile);
 
   std::function<ssize_t(const std::vector<T>&, const pbrt::path_entry&)> f;
   fun_dispatcher(e, f);
@@ -149,7 +158,7 @@ EType typeParser(std::ifstream &is) {
   std::getline(is, str);
 
   for (int i = 0; i < EType::NumTypes; ++i) {
-    if(str.compare(TypeCodes[i]) == 0) { // if code found in first word
+    if(str.compare(TypeCodes[i]) == 0) { // if code found in the first word
       return (EType)i;
     }
   }
@@ -175,12 +184,11 @@ void simple_histogram_output(std::ostream &os, const std::vector<std::string> &l
 }
 
 void histogram_generator(int argc, char* argv[]) {
-  std::ifstream paramfile;
-  std::string infile(argv[3]);
-  std::ofstream out;
+  std::string pathfile(argv[3]);
   std::vector<int> histogram;
 
   // input file parsing
+  std::ifstream paramfile;
   paramfile.open(argv[2], std::ios::in);
 
   // Type parsing
@@ -191,23 +199,22 @@ void histogram_generator(int argc, char* argv[]) {
 
   // TODO: one vector ?
   std::vector<std::string> strvalues;
-  std::vector<int> intvalues;
+  PathFile infile(pathfile);
 
   if(type == ELength || type == ELengthIval) {
-    // TODO: handle multiple input types and better parsing
+    std::vector<int> intvalues;
     std::copy(std::istream_iterator<int>(paramfile), std::istream_iterator<int>(), std::back_inserter(intvalues));
-    // Conversion for labels
-    std::for_each(intvalues.begin(), intvalues.end(), [&](int v) { strvalues.push_back(std::to_string(v)); });
-
     histogram = HistogramGenerator(type, intvalues, infile);
+    // Conversion for labels (after b/c of label generation)
+    std::for_each(intvalues.begin(), intvalues.end(), [&](int v) { strvalues.push_back(std::to_string(v)); });
   } else {
     std::copy(std::istream_iterator<std::string>(paramfile), std::istream_iterator<std::string>(),
               std::back_inserter(strvalues));
     histogram = HistogramGenerator(type, strvalues, infile);
   }
 
-
   if(argc == 5) {
+    std::ofstream out;
     out.open(argv[4], std::ios::out);
     simple_histogram_output(out, strvalues, histogram);
   } else {
