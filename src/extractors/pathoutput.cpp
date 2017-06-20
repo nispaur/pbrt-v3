@@ -3,6 +3,7 @@
 //
 
 #include <fstream>
+#include <iomanip>
 #include "pbrt.h"
 #include "paramset.h"
 #include "pathoutput.h"
@@ -29,17 +30,12 @@ void PathOutput::MergePathTile(std::unique_ptr<PathOutputTile> tile) {
   std::lock_guard<std::mutex> lock(mutex);
 
   // Path addition during rendering disabled (currently: slowing down rendering in text mode due to formatting)
-  // AppendPaths(tile->tilepaths);
-  // paths.insert(paths.end(), tile->tilepaths.begin(), tile->tilepaths.end());
+  AppendPaths(tile->tilepaths, !HasExtension(filename, ".txtdump"));
 }
 
 void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binarymode) {
-  ProfilePhase p(Prof::PathWriteOutput);
-  int avg = 0;
-  f << "Path file; n = " << entries.size() << std::endl;
-
+  ProfilePhase _(Prof::MergePathTile);
   for(const path_entry &entry: entries) {
-    avg += entry.vertices.size();
     if(!binarymode) {
       f << "Path:";
       std::ostringstream str;
@@ -49,18 +45,19 @@ void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binary
       f << entry;
     }
   }
-
-  f << "Average path length: ";
-  f << ((!entries.size()) ? 0 : avg/entries.size()) << std::endl;
-  f.close();
-
+  npaths += entries.size();
 }
+
+
 
 void PathOutput::WriteFile() {
-    ProfilePhase p(Prof::PathWriteOutput);
-    // Check extension for binary/text mode
-    AppendPaths(paths, !HasExtension(filename, ".txtdump"));
+  ProfilePhase p(Prof::PathWriteOutput);
+  // Seek to beginning and write header
+  f.seekp(std::ios::beg);
+  f << "Path file; n = " << npaths;
+  f.close();
 }
+
 
 PathOutput *CreatePathOutput(const ParamSet &params) {
   // Intentionally use FindOneString() rather than FindOneFilename() here

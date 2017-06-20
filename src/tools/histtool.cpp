@@ -4,14 +4,11 @@
 // Error/Usage fct from imgtool.cpp
 
 #include "tools/pathtool.h"
-#include <vector>
-#include <iterator>
 #include <fstream>
-#include <ostream>
-#include <string>
 #include <iomanip>
 #include <cstdarg>
 #include <set>
+#include <regex>
 
 /**
  * Input values file structure
@@ -56,7 +53,7 @@ static void usage(const char *msg = nullptr, ...) {
     vfprintf(stderr, msg, args);
     fprintf(stderr, "\n");
   }
-  fprintf(stderr, R"(usage: pathtool <command> [options] <filenames...>
+  fprintf(stderr, R"(usage: histtool <command> [options] <filenames...>
 
 commands: makehistogram
 
@@ -134,10 +131,11 @@ template <typename T>
 std::vector<int> HistogramGenerator(const EType &e, std::vector<T> &values, const PathFile &file) {
   std::vector<int> hist;
   // If no values, populate w/ file data
+  // TODO: populate and find frequencies in one pass
   if(values.empty()) {
-    std::cout << "No values provided, populating from path file" << std::endl;
+    std::cout << "No values provided, populating from path file...";
     val_populate(values, file, e);
-    std::cout << "Done. " << values.size() << " distinct values found." << std::endl;
+    std::cout << " done. " << values.size() << " distinct values found." << std::endl;
   }
 
   hist.resize(values.size() + 1);
@@ -184,22 +182,24 @@ void simple_histogram_output(std::ostream &os, const std::vector<std::string> &l
 }
 
 void histogram_generator(int argc, char* argv[]) {
-  std::string pathfile(argv[3]);
   std::vector<int> histogram;
-
   // input file parsing
   std::ifstream paramfile;
-  paramfile.open(argv[2], std::ios::in);
 
-  // Type parsing
+  if(argc < 4) {
+    usage("");
+  }
+
+  paramfile.open(argv[2], std::ios::in);
+  // TODO: one vector ?
+  std::vector<std::string> strvalues;
+  PathFile infile(argv[3]);
+
+  // Type
   EType type = typeParser(paramfile);
   if(type == EUndef) {
     usage("Undefined parameter type");
   }
-
-  // TODO: one vector ?
-  std::vector<std::string> strvalues;
-  PathFile infile(pathfile);
 
   if(type == ELength || type == ELengthIval) {
     std::vector<int> intvalues;

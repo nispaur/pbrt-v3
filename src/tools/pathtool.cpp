@@ -4,16 +4,10 @@
 // Error/Usage fct from imgtool.cpp
 
 #include "extractors/pathio.h"
-#include <cstdio>
-#include <string>
 #include <cstring>
-#include <iostream>
-#include <vector>
-#include "pbrt.h"
+#include <regex>
 #include <fstream>
 #include "tools/pathtool.h"
-#include <sstream>
-#include <fstream>
 #include <cstdarg>
 
 namespace pbrt {
@@ -47,7 +41,10 @@ regexfilter option:
     syntax: pathtool regexfilter <regex> <filename>
 
 spherefilter option:
-    syntax: pathtool spherefilter <radius> <x> <y> <z> filename
+    syntax: pathtool spherefilter <radius> <x> <y> <z> <filename>
+
+makeindex option:
+    syntax pathtool makeindex <infile> <outputfile>
 
 )");
   exit(1);
@@ -80,21 +77,12 @@ void align_check(int argc, char *argv[]) {
   int failcount = 0;
   // For now just check for path alignement
   for (int64_t i = 0; i < pathcount; ++i) {
-    // Check for path header consistency
-    /*fread(buf, 6, 1, fp);
-    if(strncmp("Path:", buf, 5)) {
-      std::cout << "Error: inconsistent path " << i << ". Header string \"" << buf << "\"" << std::endl;
-      ++failcount;
-    }
-     */
-
-    // FIXME: path/reglen saved in uint8_t instead of uint32_t
-    uint32_t reglen; // = (uint32_t)(buf[5] - '0');
-    uint32_t pathlen; // = (uint32_t)(buf[6] - '0');
+    uint32_t reglen;
+    uint32_t pathlen;
     fread(&reglen, 4, 1, fp);
     fread(&pathlen, 4, 1, fp);
 
-    // Skip the approximed path length (regxp+path string bytes + pathlen vertex entries)
+    // Skip path length (regxp+path string bytes + pathlen vertex entries)
     long int offset = reglen + pathlen * (1 + sizeof(vertex_entry));
 
     fseek(fp, offset, SEEK_CUR);
@@ -183,10 +171,6 @@ void bin_to_txt(int argc, char *argv[]) {
 
     std::ostringstream str;
     str << path;
-    /*
-    std::cout << "Path/regex size (real/announced): " << "(" << path.pathlen << "," << path.path.size() << ")" <<
-    " (" << path.regexlen << "," << path.regex.size() << "). " << str.str() << std::endl;
-    */
     ++cpt;
 
     fwrite(str.str().c_str(), sizeof(char), str.str().size(), fo);
@@ -200,10 +184,9 @@ void bin_to_txt(int argc, char *argv[]) {
 
 // PathFile version of cat
 void bin_to_txt2(int argc, char *argv[]) {
-  std::string filename(argv[3]);
   std::ofstream out(argv[2]);
 
-  PathFile file(filename);
+  PathFile file(argv[3]);
 
   for(const pbrt::path_entry &p : file) {
     std::ostringstream str;
@@ -215,15 +198,41 @@ void bin_to_txt2(int argc, char *argv[]) {
 } // namespace pbrt
 
 
-void mmap_test(int argc, char* argv[]) {
-  std::string filename(argv[2]);
-  PathFile p(filename);
+// Path select functions
 
-  for (const pbrt::path_entry &paths : p) {
-    std::cout << "Path length " << paths.pathlen << std::endl;
+
+// Regex match
+static bool regMatch(const pbrt::path_entry &path, const std::string &regexstr) {
+  std::regex reg(regexstr);
+  return !strcmp(regexstr.c_str(), path.regex.c_str()) | std::regex_match(path.path, reg);
+}
+
+// Vertices around a sphere of radius r
+static bool sphereSearch(const pbrt::path_entry &path, float r, float pos[3]) {
+  for (int i = 0; i < path.pathlen; ++i) {
+    float v[3] = {path.vertices[i].v[0], path.vertices[i].v[1], path.vertices[i].v[2]};
+    float sum = 0.f;
+    bool boundcheck = true;
+    for (int j = 0; j < 3; ++j) {
+      sum += (v[i] - pos[i])*(v[i] - pos[i]);
+    }
+
+    if(sum < r*r)
+      return true;
   }
 
-  std::cout << "Average path length: " << p.average_length() << std::endl;
+  return false;
+}
+
+
+void mmap_test(int argc, char* argv[]) {
+  PathFile pathfile(argv[2]);
+
+  for (const pbrt::path_entry &path : pathfile) {
+    std::cout << "Path length " << path.pathlen << std::endl;
+  }
+
+  std::cout << "Average path length: " << pathfile.average_length() << std::endl;
 }
 
 void filter_by_length(int argc, char* argv[]) {
@@ -233,12 +242,9 @@ void filter_by_length(int argc, char* argv[]) {
 
   // TODO: except/file name checks
   int length = std::atoi(argv[2]);
-  std::string filename(argv[3]);
-
-  std::cout << "Filename " << filename << "; legnth = " << length << std::endl;
-
-  PathFile file(filename);
   int n = 0;
+
+  PathFile file(argv[3]);
   std::for_each(file.begin(), file.end(), [&](const pbrt::path_entry &p) { n += p.pathlen == length ? 1 : 0; });
 
   std::cout << "Total paths of length " << length << " : " << n << std::endl;
@@ -251,13 +257,12 @@ void filter_by_location(int argc, char* argv[]) {
 
   float radius = std::stof(argv[5]);
   float pos[3] = {std::stof(argv[2]), std::stof(argv[3]), std::stof(argv[4])};
-  std::string filename(argv[6]);
 
   std::cout << "Matching paths passing sphere of center " << pos[0] << ", " << pos[1] << ", " << pos[2] << " and radius " << radius << std::endl;
-  PathFile file(filename);
+  PathFile file((std::string(argv[6])));
   std::vector<pbrt::path_entry> resultpaths;
   std::copy_if(file.begin(), file.end(), std::back_inserter(resultpaths),
-               [&](const pbrt::path_entry &p) { return sphereSearch(p, radius, pos); } );
+               [&](const pbrt::path_entry &p) { return sphereSearch(p, radius, pos); });
 
   std::cout << "Number of paths matching : " << resultpaths.size() << std::endl;
 }
@@ -267,30 +272,15 @@ void filter_by_regex(int argc, char* argv[]) {
     pbrt::usage();
   }
 
-  std::string filename(argv[3]);
   std::string regex(argv[2]);
 
-  PathFile file(filename);
+  PathFile file((std::string(argv[3])));
   std::vector<pbrt::path_entry> resultpaths;
   std::copy_if(file.begin(), file.end(), std::back_inserter(resultpaths),
-               [&](const pbrt::path_entry &p)
-               {
-                   /*
-                   if(regMatch(p, regex)) {
-                     std::cout << "Matching path regex = " << p.regex << "; expr = " << p.path << std::endl;
-                     return true;
-                   } else {
-                     std::cout << "Unmatched path regex = " << p.regex << "; expr = " << p.path << std::endl;
-                     return false;
-                   }
-                   */
-                   return regMatch(p, regex);
-               } );
+               [&](const pbrt::path_entry &p) { return regMatch(p, regex); });
 
   std::cout << "Number of paths matching : " << resultpaths.size() << std::endl;
-
 }
-
 
 int main(int argc, char* argv[]) {
 

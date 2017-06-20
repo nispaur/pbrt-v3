@@ -11,12 +11,16 @@
 #include "core/parallel.h"
 #include "core/memory.h"
 #include "extractors/pathio.h"
-
+#include <iomanip>
 namespace pbrt {
 
 class PathOutput {
   public:
-    PathOutput(const std::string &filename) : filename(filename), f(filename, std::ios::binary) {}
+    PathOutput(const std::string &filename) : filename(filename), f(filename, std::ios::binary), npaths(0) {
+        // Reserve space for header
+        const int headersize = 23+15; // 2^64 ~= 1e19 + 15 characters for the header
+        f << std::left << std::setw(headersize) << "Path file; n =" << " " << std::endl;
+    }
 
     std::unique_ptr<PathOutputTile> GetPathTile();
     void MergePathTile(std::unique_ptr<PathOutputTile> tile);
@@ -29,6 +33,7 @@ class PathOutput {
     std::vector<path_entry> paths;
     const std::string filename;
     std::ofstream f;
+    uint64_t npaths;
 };
 
 class PathOutputTile {
@@ -41,8 +46,6 @@ class PathOutputTile {
     std::vector<path_entry> tilepaths;
     friend class PathOutput;
 };
-
-
 
 PathOutput *CreatePathOutput(const ParamSet &params);
 
