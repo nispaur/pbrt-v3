@@ -27,7 +27,7 @@ class PathOutput {
 
     void WriteFile();
   private:
-    void AppendPaths(const std::vector<path_entry> &entries, bool binarymode = true);
+    void AppendPaths(const std::vector<path_entry> &entries);
 
     std::mutex mutex;
     std::vector<path_entry> paths;

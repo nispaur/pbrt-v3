@@ -136,10 +136,11 @@ class PathFile {
     PathFile(const std::string &filename) : fd(open(filename.c_str(), O_RDONLY)) {
       fstat(fd, &stats);
       std::cout << "Executing mmap with args: " << stats.st_size << " fd " << fd << std::endl;
-      if((filemap = (int8_t*)mmap64(nullptr, stats.st_size, 0x1, 0x0C001, fd, 0)) == (int8_t *)(-1)) { // 0x0C001
+      if((filemap = (int8_t*)mmap64(nullptr, stats.st_size, MAP_SHARED, PROT_READ|MAP_NORESERVE, fd, 0))) {
         std::cerr << "mmap error "  << std::strerror(errno) << std::endl;
         exit(EXIT_FAILURE);
       }
+
       // Read header and move map ptr to first path
       char *pathcountptr = strstr((char*)filemap, "Path file; n = ");
       pathcount = strtol(pathcountptr+15, nullptr, 10);
@@ -165,12 +166,10 @@ class PathFile {
 
     size_type average_length() const {
       uint64_t totallength = 0;
-      uint64_t pcount = 0;
       for(const pbrt::path_entry &p : *this) {
         totallength += p.pathlen;
-        ++pcount;
       }
-      return pcount == 0 ? 0 : totallength/pcount;
+      return !pathcount ? 0 : totallength/pathcount;
     }
 
     bool eof() const {
@@ -185,13 +184,10 @@ class PathFile {
   private:
     const int fd;
     struct stat stats;
-    size_t pathcount;
+    size_type pathcount;
     int8_t *filemap;
     int8_t *first_path;
     int current_pos;
 };
-
-
-
 
 #endif //PBRT_EXTLIB_PATHTOOL_H

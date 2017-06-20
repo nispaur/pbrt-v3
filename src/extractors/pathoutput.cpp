@@ -30,13 +30,13 @@ void PathOutput::MergePathTile(std::unique_ptr<PathOutputTile> tile) {
   std::lock_guard<std::mutex> lock(mutex);
 
   // Path addition during rendering disabled (currently: slowing down rendering in text mode due to formatting)
-  AppendPaths(tile->tilepaths, !HasExtension(filename, ".txtdump"));
+  AppendPaths(tile->tilepaths);
 }
 
-void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binarymode) {
+void PathOutput::AppendPaths(const std::vector<path_entry> &entries) {
   ProfilePhase _(Prof::MergePathTile);
   for(const path_entry &entry: entries) {
-    if(!binarymode) {
+    if(HasExtension(filename, ".txtdump")) {
       f << "Path:";
       std::ostringstream str;
       str << entry;
@@ -47,8 +47,6 @@ void PathOutput::AppendPaths(const std::vector<path_entry> &entries, bool binary
   }
   npaths += entries.size();
 }
-
-
 
 void PathOutput::WriteFile() {
   ProfilePhase p(Prof::PathWriteOutput);

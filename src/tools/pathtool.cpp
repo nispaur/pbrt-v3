@@ -43,9 +43,6 @@ regexfilter option:
 spherefilter option:
     syntax: pathtool spherefilter <radius> <x> <y> <z> <filename>
 
-makeindex option:
-    syntax pathtool makeindex <infile> <outputfile>
-
 )");
   exit(1);
 }
@@ -75,7 +72,7 @@ void align_check(int argc, char *argv[]) {
 
   char buf[10];
   int failcount = 0;
-  // For now just check for path alignement
+  // For now just check for path alignment
   for (int64_t i = 0; i < pathcount; ++i) {
     uint32_t reglen;
     uint32_t pathlen;
@@ -94,7 +91,7 @@ void align_check(int argc, char *argv[]) {
   }
 
   if(!failcount) {
-    std::cout << "Check finished, no alignement error found" << std::endl;
+    std::cout << "Check finished, no alignment error found" << std::endl;
   } else {
     std::cout << "Check finished, " << failcount << " errors found." << std::endl;
   }
@@ -149,19 +146,8 @@ void bin_to_txt(int argc, char *argv[]) {
   char buf[10]; // tmpbuf
   while(!pathcount--) {
     path_entry path;
-
-    // Check for path header consistency
-    fread(buf, 7, 1, fi);
-    if(strncmp("Path:", buf, 5)) {
-      std::cout << "Error: inconsistent path " << cpt << ". Header string \"" << buf << "\"" << std::endl;
-    }
-
-    // FIXME: path/reglen saved in uint8_t instead of uint32_t
-    path.regexlen = (uint32_t) (buf[5] - '0');
-    path.pathlen = (uint32_t) (buf[6] - '0');
-
-    //fread(&path.regexlen, 4, 1, fi);
-    //fread(&path.pathlen, 4, 1, fi);
+    fread(&path.regexlen, 4, 1, fi);
+    fread(&path.pathlen, 4, 1, fi);
     path.regex.resize(path.regexlen);
     path.path.resize(path.pathlen);
     fread(&path.regex[0], 1, path.regexlen, fi);
@@ -209,12 +195,10 @@ static bool regMatch(const pbrt::path_entry &path, const std::string &regexstr) 
 
 // Vertices around a sphere of radius r
 static bool sphereSearch(const pbrt::path_entry &path, float r, float pos[3]) {
-  for (int i = 0; i < path.pathlen; ++i) {
-    float v[3] = {path.vertices[i].v[0], path.vertices[i].v[1], path.vertices[i].v[2]};
+  for (const pbrt::vertex_entry &v : path.vertices) {
     float sum = 0.f;
-    bool boundcheck = true;
     for (int j = 0; j < 3; ++j) {
-      sum += (v[i] - pos[i])*(v[i] - pos[i]);
+      sum += (v.v[j] - pos[j])*(v.v[j] - pos[j]);
     }
 
     if(sum < r*r)
@@ -240,7 +224,7 @@ void filter_by_length(int argc, char* argv[]) {
     pbrt::usage();
   }
 
-  // TODO: except/file name checks
+  // TODO: file name checks
   int length = std::atoi(argv[2]);
   int n = 0;
 
