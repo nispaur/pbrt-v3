@@ -12,7 +12,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <bits/mman-linux.h>
 #include <cstring>
 #include <cerrno>
 
@@ -136,7 +135,7 @@ class PathFile {
     PathFile(const std::string &filename) : fd(open(filename.c_str(), O_RDONLY)) {
       fstat(fd, &stats);
       std::cout << "Executing mmap with args: " << stats.st_size << " fd " << fd << std::endl;
-      if((filemap = (int8_t*)mmap64(nullptr, stats.st_size, MAP_SHARED, PROT_READ|MAP_NORESERVE, fd, 0))) {
+      if((filemap = (int8_t*)mmap(nullptr, stats.st_size, MAP_SHARED, PROT_READ|MAP_NORESERVE, fd, 0)) == MAP_FAILED) {
         std::cerr << "mmap error "  << std::strerror(errno) << std::endl;
         exit(EXIT_FAILURE);
       }

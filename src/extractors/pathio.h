@@ -2,6 +2,7 @@
 // Created by stardami on 6/6/17.
 //
 
+#include <array>
 #include <iterator>
 #include "pbrt.h"
 #ifndef PBRT_EXTRACTORS_PATHIO_H
