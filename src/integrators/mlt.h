@@ -113,6 +113,7 @@ class MLTIntegrator : public Integrator {
                   int nBootstrap, int nChains, int mutationsPerPixel,
                   Float sigma, Float largeStepProbability)
         : camera(camera),
+          extractor(extractor),
           maxDepth(maxDepth),
           nBootstrap(nBootstrap),
           nChains(nChains),
