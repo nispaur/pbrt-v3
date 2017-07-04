@@ -16,9 +16,14 @@ namespace pbrt {
 
 // Container class
 
+enum ContainerType {
+    PathContainer,
+    InteractionContainer
+};
+
 class Container {
   public:
-    Container() {};
+    Container(ContainerType t = InteractionContainer) : type(t) {};
 
     virtual void Init(const RayDifferential &r, int depth, const Scene &scene) =0;
     virtual void ReportData(const SurfaceInteraction &isect) {};
@@ -32,6 +37,9 @@ class Container {
     virtual std::vector<path_entry> GetPaths() { return std::vector<path_entry>(); };
 
     virtual ~Container() {}
+
+  private:
+    bool type;
 
 };
 
@@ -161,6 +169,7 @@ class ExtractorManager {
 class AlbedoContainer : public Container {
   public:
     AlbedoContainer(const Point2f &pFilm, const BxDFType &t, bool integrate, int nbSamples) :
+            Container(ContainerType::InteractionContainer),
             p(pFilm), bxdftype(t), integrate(integrate), nSamples(nbSamples) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &Scene);
@@ -200,7 +209,8 @@ class AlbedoExtractor : public ExtractorFunc {
 
 class NContainer : public Container {
   public:
-    NContainer(const Point2f &pFilm) : p(pFilm) {};
+    NContainer(const Point2f &pFilm) : Container(ContainerType::InteractionContainer),
+                                       p(pFilm) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &scene);
     void ReportData(const SurfaceInteraction &isect);
@@ -222,7 +232,8 @@ class NormalExtractor : public ExtractorFunc {
 
 class ZContainer : public Container {
   public:
-    ZContainer(const Point2f &pFilm, Float znear, Float zfar) : p(pFilm), zfar(zfar), znear(znear) {};
+    ZContainer(const Point2f &pFilm, Float znear, Float zfar) : Container(ContainerType::InteractionContainer),
+                                                                p(pFilm), zfar(zfar), znear(znear) {};
 
     void Init(const RayDifferential &r, int depth, const Scene &scene);
     void ReportData(const SurfaceInteraction &isect);
