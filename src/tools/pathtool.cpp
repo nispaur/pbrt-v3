@@ -8,6 +8,8 @@
 #include <regex>
 #include <fstream>
 #include "tools/pathtool.h"
+#include "tools/classification/src/kmgen.h"
+#include <vector>
 #include <cstdarg>
 
 namespace pbrt {
@@ -266,6 +268,29 @@ void filter_by_regex(int argc, char* argv[]) {
   std::cout << "Number of paths matching : " << resultpaths.size() << std::endl;
 }
 
+
+void distance_classification(int argc, char* argv[]) {
+  if(argc < 3) {
+    pbrt::usage("Missing arguments");
+    return;
+  }
+
+  const int k = std::atoi(argv[2]);
+  PathFile file(argv[3]);
+  // TODO: CreateGenerator
+  std::shared_ptr<Kmeans::CentroidGenerator> generator(new Kmeans::DistanceGenerator(file));
+  Kmeans::Classifier classifier(k, file, generator, 100);
+
+  classifier.run();
+
+  std::vector<std::shared_ptr<Kmeans::Label>> labels = classifier.getLabels();
+
+  std::cout << "Classification results:" << std::endl;
+  for (std::shared_ptr<Kmeans::Label> label : labels) {
+    std::cout << "New label. Size " << label->size() << std::endl;
+  }
+}
+
 int main(int argc, char* argv[]) {
 
   if(argc == 1) {
@@ -287,6 +312,8 @@ int main(int argc, char* argv[]) {
     filter_by_location(argc, argv);
   } else if (!strcmp(argv[1], "cat2")) {
     pbrt::bin_to_txt2(argc, argv);
+  } else if(!strcmp(argv[1], "distance")) {
+    distance_classification(argc, argv);
   } else {
     pbrt::usage("");
   }

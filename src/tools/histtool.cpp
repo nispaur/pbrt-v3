@@ -49,7 +49,7 @@ static void usage(const char *msg = nullptr, ...) {
   if (msg) {
     va_list args;
     va_start(args, msg);
-    fprintf(stderr, "pathtool: ");
+    fprintf(stderr, "histtool: ");
     vfprintf(stderr, msg, args);
     fprintf(stderr, "\n");
   }

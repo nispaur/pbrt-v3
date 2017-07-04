@@ -4,6 +4,7 @@
 
 #include <array>
 #include <iterator>
+#include <core/geometry.h>
 #include "pbrt.h"
 #ifndef PBRT_EXTRACTORS_PATHIO_H
 #define PBRT_EXTRACTORS_PATHIO_H
@@ -29,6 +30,8 @@ struct vertex_entry {
     Float pdf_in;   // 4
     Float pdf_out;  // 4
                     // = 48 bytes
+
+
 };
 
 struct path_entry {
@@ -45,6 +48,10 @@ struct path_entry {
                                       vertices(e.vertices) {}
 
 };
+
+static Point3f FromArray(const std::array<Float, 3> &arr) {
+  return Point3f(arr[0], arr[1], arr[2]);
+}
 
 // Move to path_entry ?
 static size_t path_size(const path_entry &p) {

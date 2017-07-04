@@ -337,6 +337,7 @@ SET_TARGET_PROPERTIES ( pathtool
 
 TARGET_LINK_LIBRARIES ( pathtool
         pbrt
+        kmgen
         ${CMAKE_THREAD_LIBS_INIT}
         glog
         )
@@ -393,3 +394,7 @@ INSTALL ( TARGETS
   DESTINATION
   lib
   )
+
+add_library( libpathtool src/tools/pathtool.cpp )
+
+add_subdirectory(src/tools/classification)

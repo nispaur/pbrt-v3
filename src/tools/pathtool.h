@@ -115,8 +115,27 @@ class PathFile {
           memcpy((void*)cpath.vertices.data(), (void*)((char*)(cpos)+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
           return cpath;
         }
+
         const_pointer operator->() const {
           return cpos;
+        }
+
+        const_pointer get() const {
+          return cpos;
+        }
+
+        // Random access
+        pbrt::path_entry& operator[](pbrt::path_entry *pos) {
+          cpos = pos;
+          cpath.regexlen = cpos->regexlen;
+          cpath.pathlen = cpos->pathlen;
+          cpath.regex.resize(cpath.regexlen);
+          memcpy((void*)(cpath.regex.data()), (void*)((char*)(cpos) + 8), cpath.regexlen);
+          cpath.path.resize(cpath.pathlen);
+          memcpy((void*)(cpath.path.data()), (void*)((char*)(cpos) + 8 + cpath.regexlen), cpath.pathlen);
+          cpath.vertices.resize(cpath.pathlen);
+          memcpy((void*)cpath.vertices.data(), (void*)((char*)(cpos)+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
+          return cpath;
         }
 
       private:
@@ -144,7 +163,7 @@ class PathFile {
       char *pathcountptr = strstr((char*)filemap, "Path file; n = ");
       pathcount = strtol(pathcountptr+15, nullptr, 10);
       first_path = (int8_t*)memchr(filemap, '\n', 80) + 1;
-
+      make_index();
       // Place pointer to first path
       std::cout << "Loaded file, " << pathcount << " paths." << std::endl;
       std::cout << "First path pathlength = " << reinterpret_cast<pbrt::path_entry*>(first_path)->pathlen << std::endl;
@@ -171,6 +190,30 @@ class PathFile {
       return !pathcount ? 0 : totallength/pathcount;
     }
 
+    std::vector<size_type> make_index() {
+      index.reserve(pathcount);
+      for (auto i = begin(); i < end(); ++i) {
+        index.push_back((uint64_t) i.get());
+      }
+      return index;
+    }
+
+    // Random access
+    pbrt::path_entry operator[](size_type pos) const {
+
+      pbrt::path_entry cpath;
+      char* cpos = (char*)index[pos];
+      memcpy(&(cpath.regexlen), cpos, 4);
+      memcpy(&(cpath.pathlen), cpos+4, 4);
+      cpath.regex.resize(cpath.regexlen);
+      memcpy((void*)(cpath.regex.data()), cpos + 8, cpath.regexlen);
+      cpath.path.resize(cpath.pathlen);
+      memcpy((void*)(cpath.path.data()), cpos + 8 + cpath.regexlen, cpath.pathlen);
+      cpath.vertices.resize(cpath.pathlen);
+      memcpy((void*)cpath.vertices.data(), cpos + 8 + cpath.regexlen + cpath.pathlen, cpath.pathlen*sizeof(vertex_entry));
+      return cpath;
+    }
+
     bool eof() const {
       return current_pos >= pathcount;
     }
@@ -187,6 +230,7 @@ class PathFile {
     int8_t *filemap;
     int8_t *first_path;
     int current_pos;
+    std::vector<size_type> index;
 };
 
 #endif //PBRT_EXTLIB_PATHTOOL_H
