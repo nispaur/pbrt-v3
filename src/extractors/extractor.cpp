@@ -48,8 +48,7 @@ void ZContainer::ReportData(const SurfaceInteraction &isect) {
 }
 
 Spectrum ZContainer::ToSample() const {
-    // FIXME: some distances are NaN in BDPT
-    return isNaN(distance) ? Spectrum(0.f) : Spectrum(distance);
+    return Spectrum(distance);
 }
 
 

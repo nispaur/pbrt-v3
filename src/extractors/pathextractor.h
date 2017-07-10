@@ -113,7 +113,6 @@ struct Path {
 class PathExtractorContainer : public Container {
   public:
     PathExtractorContainer(const Point2f &pFilm, const std::regex &r, const std::string &regexpr) :
-            Container(ContainerType::PathContainer),
             pFilm(pFilm),
             regex(r),
             regexpr(regexpr) {};

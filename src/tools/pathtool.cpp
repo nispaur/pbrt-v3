@@ -9,6 +9,7 @@
 #include <fstream>
 #include "tools/pathtool.h"
 #include "tools/classification/src/kmgen.h"
+#include "tools/classification/src/kmedoids.h"
 #include <vector>
 #include <cstdarg>
 
@@ -291,6 +292,31 @@ void distance_classification(int argc, char* argv[]) {
   }
 }
 
+void leveinstein_classification(int argc, char* argv[]) {
+  if(argc < 3) {
+    pbrt::usage("Missing arguments");
+    return;
+  }
+
+  const int samplesize = 100;
+  const int iterations = 40;
+  const int k = std::atoi(argv[2]);
+  PathFile file(argv[3]);
+  // TODO: CreateGenerator
+  std::shared_ptr<Kmedoids::CentroidGenerator> generator(new Kmedoids::LevenshteinGenerator(file));
+  Kmedoids::Classifier classifier(k, file, generator, samplesize, iterations);
+
+  classifier.run();
+
+  std::vector<std::shared_ptr<Kmedoids::Label>> labels = classifier.getLabels();
+
+  std::cout << "Classification results:" << std::endl;
+  for (std::shared_ptr<Kmedoids::Label> label : labels) {
+    std::cout << "New label. Size " << label->size() << std::endl;
+  }
+
+}
+
 int main(int argc, char* argv[]) {
 
   if(argc == 1) {
@@ -314,6 +340,8 @@ int main(int argc, char* argv[]) {
     pbrt::bin_to_txt2(argc, argv);
   } else if(!strcmp(argv[1], "distance")) {
     distance_classification(argc, argv);
+  } else if(!strcmp(argv[1], "lev")) {
+    leveinstein_classification(argc, argv);
   } else {
     pbrt::usage("");
   }

@@ -397,4 +397,20 @@ INSTALL ( TARGETS
 
 add_library( libpathtool src/tools/pathtool.cpp )
 
-add_subdirectory(src/tools/classification)
+
+# note remove libpbrt.a
+add_library( kmgen src/tools/classification/src/kmgen.cpp src/tools/classification/src/kmedoids.cpp
+        ${PBRT_YACC_LEX_SOURCE}
+        ${PBRT_CORE_SOURCE}
+        ${PBRT_CORE_HEADERS}
+        ${PBRT_SOURCE}
+        )
+target_link_libraries(kmgen
+        pbrt
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${OPENEXR_LIBS}
+        glog
+        )
+
+target_include_directories (kmgen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+

@@ -9,7 +9,7 @@
 #include <cstdarg>
 #include <set>
 #include <regex>
-
+#include <numeric>
 /**
  * Input values file structure
  *
@@ -171,9 +171,15 @@ void simple_histogram_output(std::ostream &os, const std::vector<std::string> &l
   // Find maximum length for labels
   const int width = 20;
 
-  for(int i = 0; i < labels.size(); ++i) {
-    os << std::left << std::setw(width) << labels[i] << " : ";
-    os << values[i] << std::endl;
+  std::vector<int> p(labels.size());
+  // Lazy sorting of values
+  std::iota(p.begin(), p.end(), 0);
+  std::sort(p.begin(), p.end(),
+                    [&](size_t i, size_t j){ return values[i] > values[j]; });
+
+  for(int i = 0; i < p.size(); ++i) {
+    os << std::left << std::setw(width) << labels[p[i]] << " : ";
+    os << values[p[i]] << std::endl;
   }
 
   // Unsorted paths
