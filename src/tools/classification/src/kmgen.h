@@ -50,9 +50,7 @@ class CentroidGenerator {
 class Classifier {
   public:
     Classifier(int k, PathFile &f, std::shared_ptr<CentroidGenerator> g, int maxiterations = -1) :
-            k(k), paths(f), maxiterations(maxiterations), iteration(0), generator(g) {
-      f.make_index();
-    }
+            k(k), paths(f), maxiterations(maxiterations), iteration(0), generator(g) {}
 
     void run();
 

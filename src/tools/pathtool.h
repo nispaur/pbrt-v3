@@ -53,44 +53,43 @@ class PathFile {
         typedef typename A::reference const_reference;
         typedef typename A::pointer const_pointer;
         typedef std::forward_iterator_tag iterator_category;
+        typedef PathFile vector_type;
 
-        pathconst_iterator (void *startptr, size_type offset = 0) {
-          pathfile = startptr;
-          cpos = (T*)startptr;
-          *this += offset;
+        pathconst_iterator (const vector_type *vector_ptr, size_type offset = 0) : path_vector(vector_ptr) {
+          cpos = (pbrt::path_entry*) vector_ptr->get_index(offset);
         }
 
         // TODO: make iterator copy constructible ?
-        pathconst_iterator (const pathconst_iterator &it) : pathfile(it.pathfile), cpos(it.cpos) {}
+        pathconst_iterator (const pathconst_iterator &it) : path_vector(it.path_vector), cpos(it.cpos) {}
         ~pathconst_iterator() {}
 
         pathconst_iterator& operator=(const pathconst_iterator& it) {
-          pathfile = it.pathfile;
-          cpos = it.cpos; // ?
+          path_vector = it.path_vector;
+          cpos = it.cpos;
         }
+        
         // TODO: full iterator content compare (ForwardIterator requirements)
         bool operator==(const pathconst_iterator &it) const { return cpos == it.cpos; }
-        bool operator!=(const pathconst_iterator&it) const { return cpos != it.cpos; }
+        bool operator!=(const pathconst_iterator &it) const { return cpos != it.cpos; }
         bool operator<(const pathconst_iterator &it) const { return cpos < it.cpos; }
         bool operator>(const pathconst_iterator &it) const { return cpos > it.cpos; }
         bool operator<=(const pathconst_iterator &it) const { return cpos <= it.cpos; }
         bool operator>=(const pathconst_iterator &it) const { return cpos >= it.cpos; }
 
         pathconst_iterator& operator++() {
-          cpos = (pbrt::path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
+          cpos = next_pathptr(cpos);
           return *this;
         }
 
-        pathconst_iterator operator++(int n) {
-          for (int i = 0; i < n; ++i) {
-            cpos = (pbrt::path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
-          }
-          return *this;
+        const_reference operator++(int n) {
+          pathconst_iterator it = pathconst_iterator(*this);
+          cpos = next_pathptr(cpos);
+          return *it;
         }
 
         pathconst_iterator& operator+=(size_type n) {
-          for (int i = 0; i < n; ++i) {
-            cpos = (pbrt::path_entry*)((char*)cpos + 2*sizeof(uint32_t) + cpos->regexlen + cpos->pathlen * (1 + sizeof(pbrt::vertex_entry)));
+          for(int i = 0; i < n; ++i) {
+            cpos = next_pathptr(cpos);
           }
           return *this;
         }
@@ -104,16 +103,8 @@ class PathFile {
         // const_iterator operator-(size_type) const; //optional
         // difference_type operator-(const_iterator) const; //optional
 
-        const_reference operator*()  {
-          cpath.regexlen = cpos->regexlen;
-          cpath.pathlen = cpos->pathlen;
-          cpath.regex.resize(cpath.regexlen);
-          memcpy((void*)(cpath.regex.data()), (void*)((char*)(cpos) + 8), cpath.regexlen);
-          cpath.path.resize(cpath.pathlen);
-          memcpy((void*)(cpath.path.data()), (void*)((char*)(cpos) + 8 + cpath.regexlen), cpath.pathlen);
-          cpath.vertices.resize(cpath.pathlen);
-          memcpy((void*)cpath.vertices.data(), (void*)((char*)(cpos)+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
-          return cpath;
+        const_reference operator*() {
+          return cpath = pbrt::path_fromptr((void*)cpos);
         }
 
         const_pointer operator->() const {
@@ -125,26 +116,22 @@ class PathFile {
         }
 
         // Random access
-        pbrt::path_entry& operator[](pbrt::path_entry *pos) {
-          cpos = pos;
-          cpath.regexlen = cpos->regexlen;
-          cpath.pathlen = cpos->pathlen;
-          cpath.regex.resize(cpath.regexlen);
-          memcpy((void*)(cpath.regex.data()), (void*)((char*)(cpos) + 8), cpath.regexlen);
-          cpath.path.resize(cpath.pathlen);
-          memcpy((void*)(cpath.path.data()), (void*)((char*)(cpos) + 8 + cpath.regexlen), cpath.pathlen);
-          cpath.vertices.resize(cpath.pathlen);
-          memcpy((void*)cpath.vertices.data(), (void*)((char*)(cpos)+8+cpath.regexlen+cpath.pathlen), cpath.pathlen*sizeof(vertex_entry));
-          return cpath;
+        const_reference operator[](pbrt::path_entry *pos) {
+          return cpath = pbrt::path_fromptr((void*)pos);
         }
 
       private:
+        const_pointer next_pathptr(pbrt::path_entry* ptr) const {
+          return (const_pointer)((char*)ptr + 2*sizeof(uint32_t) + 5*sizeof(float) + ptr->regexlen + (ptr->pathlen * (1 + sizeof(pbrt::vertex_entry))));
+        }
+
         // Iterator attrs
         //pbrt::path_entry cpath;
         void *pathfile;
         pbrt::path_entry *cpos; // Current path position in file
         pbrt::path_entry cpath;
 
+        const vector_type *path_vector;
     };
 
     // Container typedefs
@@ -172,15 +159,17 @@ class PathFile {
 
     // iterator methods
     const_iterator begin() const {
-      return PathFile::const_iterator(first_path);
+      return PathFile::const_iterator(this, 0);
     }
 
     // past the end iterator
     const_iterator end() const {
-      return PathFile::const_iterator(filemap+stats.st_size);
+      return PathFile::const_iterator(this, pathcount);
     }
 
-    size_type size() const { return pathcount; }
+    size_type size() const { 
+      return pathcount; 
+    }
 
     size_type average_length() const {
       uint64_t totallength = 0;
@@ -190,28 +179,18 @@ class PathFile {
       return !pathcount ? 0 : totallength/pathcount;
     }
 
-    std::vector<size_type> make_index() {
-      index.reserve(pathcount);
-      for (auto i = begin(); i < end(); ++i) {
-        index.push_back((uint64_t) i.get());
-      }
-      return index;
+    const pbrt::path_entry* get_index(size_type pos) const {
+      return (pbrt::path_entry*)index[pos];
+    }
+
+    // Returns pointer to the first path
+    const pbrt::path_entry* data() const {
+      return (pbrt::path_entry*)first_path;
     }
 
     // Random access
     pbrt::path_entry operator[](size_type pos) const {
-
-      pbrt::path_entry cpath;
-      char* cpos = (char*)index[pos];
-      memcpy(&(cpath.regexlen), cpos, 4);
-      memcpy(&(cpath.pathlen), cpos+4, 4);
-      cpath.regex.resize(cpath.regexlen);
-      memcpy((void*)(cpath.regex.data()), cpos + 8, cpath.regexlen);
-      cpath.path.resize(cpath.pathlen);
-      memcpy((void*)(cpath.path.data()), cpos + 8 + cpath.regexlen, cpath.pathlen);
-      cpath.vertices.resize(cpath.pathlen);
-      memcpy((void*)cpath.vertices.data(), cpos + 8 + cpath.regexlen + cpath.pathlen, cpath.pathlen*sizeof(vertex_entry));
-      return cpath;
+      return pbrt::path_fromptr((void*)index[pos]);
     }
 
     bool eof() const {
@@ -224,6 +203,17 @@ class PathFile {
     }
 
   private:
+    std::vector<size_type> make_index() {
+      index.reserve(pathcount);
+      pbrt::path_entry* ptr = (pbrt::path_entry*)first_path;
+      for (int i = 0; i < pathcount; ++i) {
+        index.push_back((uint64_t)ptr);
+        ptr = (pbrt::path_entry*)((char*)ptr + 2*sizeof(uint32_t) + 5*sizeof(float) + ptr->regexlen + (ptr->pathlen * (1 + sizeof(pbrt::vertex_entry))));
+      }
+      index.push_back((uint64_t)ptr); // EOF ptr
+      return index;
+    }
+
     const int fd;
     struct stat stats;
     size_type pathcount;

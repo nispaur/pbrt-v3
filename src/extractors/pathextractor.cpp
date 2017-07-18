@@ -131,6 +131,9 @@ std::vector<path_entry> PathExtractorContainer::GetPaths() {
                     entry.regex = regexpr;
                     entry.regexlen = regexpr.size();
                     entry.pathlen = entry.path.size();
+                    p.L.ToRGB(&entry.L[0]);
+                    entry.pFilm[0] = pFilm.x;
+                    entry.pFilm[1] = pFilm.y;
                     entry.vertices.reserve(p.vertices.size());
 
                     std::for_each(p.vertices.begin(), p.vertices.end(), [&](const PathVertex &v) {

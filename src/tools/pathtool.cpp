@@ -12,6 +12,12 @@
 #include "tools/classification/src/kmedoids.h"
 #include <vector>
 #include <cstdarg>
+#include <filters/box.h>
+#include "core/film.h"
+#include "core/paramset.h"
+#include <memory>
+
+void label_to_img(PathFile &paths, const std::string &filename, int xres, int yres, int diagonal, const std::vector<uint64_t> &elements);
 
 namespace pbrt {
 
@@ -179,8 +185,7 @@ void bin_to_txt2(int argc, char *argv[]) {
 
   for(const pbrt::path_entry &p : file) {
     std::ostringstream str;
-    str << p;
-    out << str.str() << std::endl;
+    std::cout << (str << p).str() << std::endl;
   }
 }
 
@@ -298,8 +303,8 @@ void leveinstein_classification(int argc, char* argv[]) {
     return;
   }
 
-  const int samplesize = 100;
-  const int iterations = 40;
+  const int samplesize = 10000;
+  const int iterations = 15;
   const int k = std::atoi(argv[2]);
   PathFile file(argv[3]);
   // TODO: CreateGenerator
@@ -311,9 +316,85 @@ void leveinstein_classification(int argc, char* argv[]) {
   std::vector<std::shared_ptr<Kmedoids::Label>> labels = classifier.getLabels();
 
   std::cout << "Classification results:" << std::endl;
-  for (std::shared_ptr<Kmedoids::Label> label : labels) {
-    std::cout << "New label. Size " << label->size() << std::endl;
+  for (int i = 0; i < labels.size(); ++i) {
+    std::cout << "New label. Size " << labels[i]->size() << std::endl;
+    std::string fname = "labels_" + std::to_string(i) + ".exr";
+    label_to_img(file, fname, 1024, 1024, .35f, labels[i]->elements);
   }
+
+}
+
+
+void label_to_img(PathFile &paths, const std::string &filename, int xres, int yres, int diagonal, const std::vector<uint64_t> &elements) {
+  pbrt::Film *film =  new pbrt::Film(pbrt::Point2i(xres, yres),
+                                     pbrt::Bounds2f(pbrt::Point2f(0, 0), pbrt::Point2f(1, 1)),
+                                     std::unique_ptr<pbrt::Filter>(pbrt::CreateBoxFilter(pbrt::ParamSet())), diagonal, filename, 1.f);
+
+  std::unique_ptr<pbrt::FilmTile> tile(film->GetFilmTile(pbrt::Bounds2i(pbrt::Point2i(0,0), pbrt::Point2i(xres,yres))));
+  for(uint64_t idx : elements) {
+    const pbrt::path_entry &p = paths[idx];
+    if(p.pathlen == 0) continue;
+    pbrt::Point2f samplepoint(p.pFilm[0], p.pFilm[1]);
+    pbrt::Spectrum bsdf = pbrt::Spectrum::FromRGB(&p.L[0]);
+    //std::cerr << "Adding path " << samplepoint << "with bsdf = " << bsdf << std::endl;
+    tile->AddSample(samplepoint, bsdf);
+  }
+
+  std::cerr << "Merging path tile" << std::endl;
+
+  film->MergeFilmTile(std::move(tile));
+  film->WriteImage();
+}
+
+void pathdist_classification(int argc, char* argv[]) {
+  if(argc < 3) {
+    pbrt::usage("Missing arguments");
+    return;
+  }
+
+  const int samplesize = 10000;
+  const int iterations = 20;
+  const int k = std::atoi(argv[2]);
+  PathFile file(argv[3]);
+  // TODO: CreateGenerator
+  std::shared_ptr<Kmedoids::CentroidGenerator> generator(new Kmedoids::PathDistanceGenerator(file));
+  Kmedoids::Classifier classifier(k, file, generator, samplesize, iterations);
+
+  classifier.run();
+
+  std::vector<std::shared_ptr<Kmedoids::Label>> labels = classifier.getLabels();
+
+  std::cout << "Classification results:" << std::endl;
+  for (int i = 0; i < labels.size(); ++i) {
+    std::cout << "New label. Size " << labels[i]->size() << std::endl;
+    std::string fname = "labels_" + std::to_string(i) + ".exr";
+    label_to_img(file, fname, 1024, 1024, .35f, labels[i]->elements);
+  }
+
+}
+
+
+void path_to_img(int argc, char* argv[]) {
+  PathFile paths(argv[2]);
+  std::string outputfile(argv[3]);
+
+  pbrt::Film *film =  new pbrt::Film(pbrt::Point2i(1024,1024),
+          pbrt::Bounds2f(pbrt::Point2f(0, 0), pbrt::Point2f(1, 1)),
+          std::unique_ptr<pbrt::Filter>(pbrt::CreateBoxFilter(pbrt::ParamSet())), 35.f, outputfile, 1.f);
+
+  std::unique_ptr<pbrt::FilmTile> tile(film->GetFilmTile(pbrt::Bounds2i(pbrt::Point2i(0,0), pbrt::Point2i(1024,1024))));
+  for(const pbrt::path_entry &p : paths) {
+    if(p.pathlen == 0) continue;
+    pbrt::Point2f samplepoint(p.pFilm[0], p.pFilm[1]);
+    pbrt::Spectrum bsdf = pbrt::Spectrum::FromRGB(&p.L[0]);
+    //std::cerr << "Adding path " << samplepoint << "with bsdf = " << bsdf << std::endl;
+    tile->AddSample(samplepoint, bsdf);
+  }
+
+  std::cerr << "Merging path tile" << std::endl;
+
+  film->MergeFilmTile(std::move(tile));
+  film->WriteImage();
 
 }
 
@@ -340,8 +421,12 @@ int main(int argc, char* argv[]) {
     pbrt::bin_to_txt2(argc, argv);
   } else if(!strcmp(argv[1], "distance")) {
     distance_classification(argc, argv);
+  } else if(!strcmp(argv[1], "pathdist")) {
+    pathdist_classification(argc, argv);
   } else if(!strcmp(argv[1], "lev")) {
     leveinstein_classification(argc, argv);
+  } else if(!strcmp(argv[1], "toimg")) {
+    path_to_img(argc, argv);
   } else {
     pbrt::usage("");
   }

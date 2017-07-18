@@ -39,12 +39,13 @@ void Classifier::run() {
   std::uniform_int_distribution<unsigned long> dist(0, paths.size());
 
   std::set<uint64_t> samples;
-  while(samples.size() < samplesize) {
+  while (samples.size() < samplesize) {
     samples.insert(dist(g));
   }
 
   sampleset.resize(samplesize);
   sampleset.assign(samples.begin(), samples.end());
+
 
   // Generate random centroids
   for (int i = 0; i < k; ++i) {
@@ -62,7 +63,8 @@ void Classifier::run() {
   }
 
   cost = std::numeric_limits<size_t>::max();
-  while (!end()) {
+  int stablemedoids = 0;
+  while (!end() && stablemedoids != labels.size()) {
     lastcost = cost; // update cost.
     std::cerr << std::endl << "Iteration " << iteration << std::endl;
     /*
@@ -71,9 +73,9 @@ void Classifier::run() {
       sortElement(i);
     }
     */
-    for (int i = 0; i < sampleset.size(); ++i) {
-      sortElement(sampleset[i]);
-      sampleset.erase(sampleset.begin()+i);
+    while(!sampleset.empty()) {
+      sortElement(sampleset[0]);
+      sampleset.erase(sampleset.begin());
     }
 
     // Sum up all label costs
@@ -85,18 +87,23 @@ void Classifier::run() {
     // Recompute new centroids
     recalculateCentroids();
     // Recover centroids that need to be resorted
+    stablemedoids = 0;
     for(std::shared_ptr<Label> label : labels) {
+      stablemedoids += (label->fixed_medoid() ? 1 : 0);
 	    label->getElementsToSort(sampleset);
-
-    }
-
-    for(std::shared_ptr<Label> label : labels) {
       cost += label->cost();
       totalpaths += label->size();
     }
     std::cerr << "n = " << totalpaths << " (+" << sampleset.size() << ") ; Total cost for iteration " << iteration << " : " << cost << " (" << cost-lastcost << ")" << std::endl;
 
     ++iteration;
+  }
+
+  std::cerr << "Assign remaining paths" << std::endl;
+  for(int64_t i = 0; i < paths.size(); ++i) {
+    if(samples.find(i) == samples.end()) {
+      sortElement(i);
+    }
   }
 }
 
@@ -162,6 +169,111 @@ bool Classifier::end() {
   */
 }
 
+// ray origin -> destination
+
+
+DistanceGenerator::DistanceGenerator(const PathFile &p) : CentroidGenerator(p) {
+  // Find bounds for the generator
+  for (const pbrt::path_entry &path : paths) {
+    pbrt::Vector3f od = pbrt::FromArray(path.vertices.back().v) - pbrt::FromArray(path.vertices[0].v);
+    b = pbrt::Bounds3f(pbrt::Point3f(std::min(b.pMin.x, od.x), std::min(b.pMin.y, od.y), std::min(b.pMin.z, od.z)),
+                       pbrt::Point3f(std::max(b.pMax.x, od.x), std::max(b.pMax.y, od.y), std::max(b.pMax.z, od.z)));
+  }
+}
+
+std::shared_ptr<Label> DistanceGenerator::generateRandomCentroid() {
+  // Generate a random vector between the probable vectors of the dataset
+  // TODO: add some margin ?
+  pbrt::Vector3f v;
+  constexpr float margin = 0.f;
+  for (int i = 0; i < 3; ++i) {
+    v[i] = rng(generator) * (b.pMax[i]+margin - (b.pMin[i]-margin)) + (b.pMin[i]-margin);
+  }
+
+  return std::shared_ptr<Label>(new DistanceLabel(v));
+}
+
+float DistanceLabel::distance(const pbrt::path_entry &p) {
+  return distance(p, length);
+}
+
+void DistanceLabel::recompute_centroid(const PathFile &pathfile) {
+  std::cerr << "Centroid recomputation";
+  std::atomic<float> min_dist;
+  std::atomic<uint64_t> best_candidate;
+
+
+  min_dist.store(std::numeric_limits<float>::max());
+  best_candidate.store(0);
+
+  //pbrt::ParallelInit();
+  pbrt::ParallelFor([&](uint64_t i) {
+      pbrt::path_entry p = pathfile[elements[i]];
+      float locallength = std::fabs(pbrt::Vector3f(pbrt::FromArray(p.vertices.back().v) - pbrt::FromArray(p.vertices.front().v)).Length());
+      float localdistsum = distance(p); // Account for distance to current mean
+      for (int j = 0; j < elements.size(); ++j) {
+        localdistsum += distance(pathfile[elements[j]], locallength);
+        
+        /*
+        if (localdistsum > min_dist)
+          break;
+        */
+      }
+
+      if (localdistsum < min_dist) {
+        min_dist = localdistsum;
+        best_candidate = i;
+      }
+
+  }, elements.size());
+
+  if (min_dist < currentcost) {
+    // Update medoid
+    centroid = pbrt::Vector3f(pbrt::FromArray(pathfile[elements[best_candidate]].vertices.back().v) - pbrt::FromArray(pathfile[elements[best_candidate]].vertices.front().v));
+    length = centroid.Length();
+    // centroid = pathfile[best_candidate].path;
+    std::cerr << "Centroid update; ";
+    resortelements = true;
+  } else {
+    std::cerr << "Keep medoid; ";
+  }
+
+  std::cerr << "label " << centroid << " ; length = " << length << " elements = "
+            << elements.size() << ". Previous/current cost = " << currentcost << "/" << min_dist <<
+            " variance = " << sigma_sq << std::endl;
+}
+
+void DistanceLabel::update_mean(const pbrt::path_entry &p) {
+  const float length = pbrt::Vector3f(pbrt::FromArray(p.vertices.back().v) - pbrt::FromArray(p.vertices.front().v)).Length();
+  if (!elements.empty()) {
+    const float m_old = meanlength;
+    meanlength += (length - meanlength) / elements.size();
+    sigma_sq += (length-m_old)*(length-meanlength);
+    currentcost += length;
+  }
+  else {
+    meanlength = length;
+    sigma_sq = 0;
+    currentcost = 0;
+  }
+}
+
+float DistanceLabel::distance(const pbrt::path_entry &p, float centroidlength) const {
+  return std::fabs(pbrt::Vector3f(pbrt::FromArray(p.vertices.back().v) - pbrt::FromArray(p.vertices.front().v)).Length()
+                   - centroidlength);
+}
+
+void DistanceLabel::getElementsToSort(std::vector<uint64_t> &sampleset) {
+  if(!resortelements)
+    return;
+
+  sampleset.insert(sampleset.end(), elements.begin(), elements.end());
+  elements.clear();
+  resortelements = false;
+}
+
+// Levenshtein Distance
+
 std::shared_ptr<Label> LevenshteinGenerator::generateRandomCentroid() {
   // Generate a random vector between the probable vectors of the dataset
 
@@ -170,7 +282,7 @@ std::shared_ptr<Label> LevenshteinGenerator::generateRandomCentroid() {
   return std::shared_ptr<Label>(new LevenshteinDistance(paths[random_id].path));
 }
 
-int LevenshteinDistance::levenshteinDistance(const std::string &s1, const std::string &s2) const {
+int LevenshteinDistance::distance(const std::string &s1, const std::string &s2) const {
 	// To change the type this function manipulates and returns, change
 	// the return type and the types of the two variables below.
 	int s1len = s1.size();
@@ -201,7 +313,7 @@ int LevenshteinDistance::levenshteinDistance(const std::string &s1, const std::s
 }
 
 float LevenshteinDistance::distance(const pbrt::path_entry &p) {
-  return last_distance = levenshteinDistance(centroid, p.path);
+  return last_distance = distance(centroid, p.path);
 }
 
 void LevenshteinDistance::recompute_centroid(const PathFile &p) {
@@ -214,14 +326,16 @@ void LevenshteinDistance::recompute_centroid(const PathFile &p) {
   //pbrt::ParallelInit();
   pbrt::ParallelFor([&](uint64_t i) {
     std::string s(p[elements[i]].path);
-    uint64_t localdistsum = levenshteinDistance(s, centroid); // Account for distance to current mean
+    uint64_t localdistsum = distance(s, centroid); // Account for distance to current mean
     for (int j = 0; j < elements.size(); ++j) {
-      localdistsum += levenshteinDistance(s, p[elements[j]].path);
-      if (localdistsum > min_dist || localdistsum > currentcost)
+      localdistsum += distance(s, p[elements[j]].path);
+      /*
+      if (localdistsum > min_dist)
         break;
+      */
     }
 
-    if (localdistsum < min_dist && localdistsum < currentcost) {
+    if (localdistsum < min_dist) {
       min_dist = localdistsum;
       best_candidate = i;
     }
@@ -230,7 +344,7 @@ void LevenshteinDistance::recompute_centroid(const PathFile &p) {
 
   if(min_dist < currentcost) {
     // Update medoid
-    centroid = p[best_candidate].path;
+    centroid = p[elements[best_candidate]].path;
     std::cerr << "Centroid update; ";
     resortelements = true;
   } else {
@@ -266,4 +380,89 @@ void LevenshteinDistance::update_mean(const pbrt::path_entry &p) {
   currentcost += last_distance;
 }
 
+float PathDistance::distance(const pbrt::path_entry &p) {
+  return last_distance = distance(centroid, p);
+}
+
+// todo: generic centroid recomputation
+void PathDistance::recompute_centroid(const PathFile &p) {
+  std::cerr << "Centroid recomputation";
+  std::atomic<uint64_t> min_dist;
+  min_dist.store(std::numeric_limits<unsigned long>::max());
+  std::atomic<uint64_t> best_candidate;
+  best_candidate.store(0);
+
+  //pbrt::ParallelInit();
+  pbrt::ParallelFor([&](uint64_t i) {
+      float localdistsum = distance(p[elements[i]]); // Account for distance to current mean
+      for (int j = 0; j < elements.size(); ++j) {
+        localdistsum += distance(p[elements[i]], p[elements[j]]);
+      }
+
+      if (localdistsum < min_dist) {
+        min_dist = localdistsum;
+        best_candidate = i;
+      }
+
+  }, elements.size());
+
+  if(min_dist < currentcost) {
+    // Update medoid
+    centroid = p[elements[best_candidate]];
+    std::cerr << "Centroid update; ";
+    resortelements = true;
+  } else {
+    std::cerr << "Keep medoid; ";
+  }
+
+  std::cerr <<  "label " << centroid.path << " elements = "
+            << elements.size() << ". Previous/current cost = " << currentcost<< "/" << min_dist <<
+            " variance = " << sigma_sq << std::endl;
+}
+
+float PathDistance::distance(const pbrt::path_entry &p1, const pbrt::path_entry &p2) {
+  // find the closest match between paths
+  const pbrt::path_entry &s_path = p1.pathlen < p2.pathlen ? p1 : p2;
+  const pbrt::path_entry &l_path = p1.pathlen >= p2.pathlen ? p1 : p2;
+
+  float distsum = 0.f;
+  for (int i = 0; i < s_path.vertices.size(); ++i) {
+    float localmin = std::numeric_limits<float>::max();
+    for (int j = 0; j < l_path.vertices.size(); ++j) {
+      localmin = std::min(pbrt::Vector3f(
+              pbrt::FromArray(s_path.vertices[i].v) - pbrt::FromArray(l_path.vertices[j].v)).LengthSquared(), localmin);
+    }
+    distsum += localmin;
+  }
+  return std::sqrt(distsum); // geometric mean ?
+}
+
+
+void PathDistance::getElementsToSort(std::vector<uint64_t> &sampleset) {
+  if(!resortelements)
+    return;
+
+  sampleset.insert(sampleset.end(), elements.begin(), elements.end());
+  elements.clear();
+  resortelements = false;
+}
+
+void PathDistance::update_mean(const pbrt::path_entry &p) {
+  if (!elements.empty()) {
+    const float m_old = meanlength;
+    meanlength += (last_distance - meanlength) / elements.size();
+    sigma_sq += (last_distance-m_old)*(last_distance-meanlength);
+  }
+  else {
+    meanlength = last_distance;
+    sigma_sq = 0;
+    currentcost = 0;
+  }
+
+  currentcost += last_distance;
+}
+
+std::shared_ptr<Label> PathDistanceGenerator::generateRandomCentroid() {
+  uint64_t random_id(rng(generator) * paths.size());
+  return std::shared_ptr<Label>(new PathDistance(paths[random_id]));}
 } // namespace Kmeans

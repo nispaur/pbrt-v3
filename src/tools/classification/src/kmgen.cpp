@@ -154,4 +154,52 @@ void DistanceLabel::update_mean(const pbrt::path_entry &p) {
   }
 }
 
+#if 0
+float PathDistance::distance(const pbrt::path_entry &p) {
+  return distance(centroid, p);
+}
+
+void PathDistance::recompute_centroid() {
+  // Recompute length from average length of all vertices
+  std::cerr << "Centroid update; label elements = "
+            << elements.size() << ". Previous/current mean length = " << length << "/" << meanlength <<
+            " variance = " << sigma_sq << std::endl;
+
+  length = meanlength;
+  elements.clear();
+}
+
+float PathDistance::distance(const pbrt::path_entry &p1, const pbrt::path_entry &p2) {
+  // find the closest match between paths
+  const pbrt::path_entry &s_path = p1.pathlen < p2.pathlen ? p1 : p2;
+  const pbrt::path_entry &l_path = p1.pathlen >= p2.pathlen ? p1 : p2;
+
+  float distsum = 0.f;
+  for (int i = 0; i < s_path.vertices.size(); ++i) {
+    float localmin = std::numeric_limits<float>::max();
+    for (int j = 0; j < l_path.vertices.size(); ++j) {
+      localmin = std::min(pbrt::Vector3f(
+              pbrt::FromArray(s_path.vertices[i].v) - pbrt::FromArray(l_path.vertices[j].v)).LengthSquared(), localmin);
+    }
+    distsum += localmin;
+  }
+  return std::sqrt(distsum); // geometric mean ?
+}
+
+
+void PathDistance::update_mean(const pbrt::path_entry &p) {
+  if (!elements.empty()) {
+    const float m_old = meanlength;
+    meanlength += (last_distance - meanlength) / elements.size();
+    sigma_sq += (last_distance-m_old)*(last_distance-meanlength);
+  }
+  else {
+    meanlength = last_distance;
+    sigma_sq = 0;
+    currentcost = 0;
+  }
+
+  currentcost += last_distance;
+}
+#endif
 } // namespace Kmeans

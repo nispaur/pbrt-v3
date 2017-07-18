@@ -14,7 +14,7 @@ namespace Kmedoids {
 
 class Label {
   public:
-    Label() {}
+    Label(bool resortelements = false) : resortelements(resortelements) {}
 
     virtual float distance(const pbrt::path_entry &p) = 0;
 
@@ -29,10 +29,13 @@ class Label {
 
     size_t size() const { return elements.size(); }
     size_t cost() const { return currentcost; }
+    bool fixed_medoid() const { return !resortelements && !elements.empty(); }
+
     std::vector<uint64_t> elements;
     virtual void getElementsToSort(std::vector<uint64_t> &sampleset) = 0;
   protected:
     size_t currentcost;
+    bool resortelements;
 
   private:
     virtual void update_mean(const pbrt::path_entry &p) = 0;
@@ -58,9 +61,7 @@ class Classifier {
   public:
     Classifier(int k, PathFile &f, std::shared_ptr<CentroidGenerator> g, int samplesize, int maxiterations = -1) :
             k(k), paths(f), maxiterations(maxiterations), samplesize(samplesize), iteration(0), generator(g) {
-      f.make_index();
       pbrt::ParallelInit();
-
     }
 
     void run();
@@ -102,12 +103,18 @@ class DistanceLabel : public Label {
 
     float distance(const pbrt::path_entry &p);
     void recompute_centroid(const PathFile &p);
-    void getElementsToSort(std::vector<uint64_t> &sampleset) {} // FIXME: get distance label elements to resort
+    void getElementsToSort(std::vector<uint64_t> &sampleset);
     bool operator ==(const DistanceLabel &b) const {
       return b.centroid == centroid;
     }
 
+    bool operator ==(const Label &b) const {
+      const DistanceLabel *label_ptr = dynamic_cast<const DistanceLabel *>(&b);
+      return (label_ptr == nullptr) ? false : (*label_ptr == *this);
+    }
+
   private:
+    float distance(const pbrt::path_entry &p, float centroidlength) const;
     void update_mean(const pbrt::path_entry &p);
 
     pbrt::Vector3f centroid;
@@ -130,7 +137,7 @@ class DistanceGenerator : public CentroidGenerator {
 
 class LevenshteinDistance : public Label {
   public:
-    LevenshteinDistance(const std::string &centroid) : centroid(centroid), resortelements(false) {
+    LevenshteinDistance(const std::string &centroid) : centroid(centroid) {
       std::cerr << "New Distance Label generated; string = " << centroid << std::endl;
     }
 
@@ -138,11 +145,7 @@ class LevenshteinDistance : public Label {
 
     bool operator ==(const Label &b) const {
       const LevenshteinDistance *label_ptr = dynamic_cast<const LevenshteinDistance *>(&b);
-      if (!label_ptr) {
-        return false;
-      } else {
-        return *label_ptr == *this;
-      }
+      return (label_ptr == nullptr) ? false : (*label_ptr == *this);
     }
 
     bool operator ==(const LevenshteinDistance &b) const {
@@ -154,8 +157,7 @@ class LevenshteinDistance : public Label {
     void update_mean(const pbrt::path_entry &p);
 
   private:
-    int levenshteinDistance(const std::string &s1, const std::string &s2) const;
-    bool resortelements;
+    int distance(const std::string &s1, const std::string &s2) const;
     std::string centroid;
     // uint64_t distsum;
     uint64_t last_distance;
@@ -172,6 +174,46 @@ class LevenshteinGenerator : public CentroidGenerator {
 
   private:
 
+};
+
+class PathDistance : public Label {
+  public:
+    PathDistance(const pbrt::path_entry &centroid) : centroid(centroid) {
+      std::cerr << "New PathDistance label generated; path " << centroid.path << std::endl;
+    }
+
+    float distance(const pbrt::path_entry &p);
+
+    bool operator ==(const Label &b) const {
+      const PathDistance *label_ptr = dynamic_cast<const PathDistance *>(&b);
+      return (label_ptr == nullptr) ? false : (*label_ptr == *this);
+    }
+
+    bool operator ==(const PathDistance &b) const {
+      return b.centroid == centroid;
+    }
+
+    void recompute_centroid(const PathFile &p);
+    void getElementsToSort(std::vector<uint64_t> &elements);
+    void update_mean(const pbrt::path_entry &p);
+
+  private:
+    float distance(const pbrt::path_entry &p1, const pbrt::path_entry &p2);
+
+    pbrt::path_entry centroid;
+    float last_distance;
+    float length;
+    float meanlength;
+    float sigma_sq; // Variance
+};
+
+class PathDistanceGenerator : public CentroidGenerator {
+  public:
+    PathDistanceGenerator(const PathFile &p) : CentroidGenerator(p) {}
+
+    std::shared_ptr<Label> generateRandomCentroid();
+
+  private:
 };
 
 } // namespace Kmeans
